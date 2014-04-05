@@ -420,9 +420,9 @@ void get_msg_free(struct get_msg **g){
 	int i,j;
 	struct TK_MSID *t;
 	for(i=0;i<MSID_HASH_ACC;i++){
-		//		j=0;
+//				j=0;
 		while((*g)->mhash->idlist[i]!=NULL){
-			//			j++;
+//						j++;
 			//			t = (*g)->mhash->idlist[i];
 			//			printf("%.6d:\t",t->p);
 			//			for(j=0;j<4;j++)
@@ -439,7 +439,7 @@ void get_msg_free(struct get_msg **g){
 			free((*g)->mhash->idlist[i]);
 			(*g)->mhash->idlist[i] = t;
 		}
-		//		printf("%d in hash %d\n", j, i);
+//				printf("%d in hash %d\n", j, i);
 	}
 	free(*g);
 }

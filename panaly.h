@@ -3,8 +3,8 @@
 
 #include "structure.h"
 
-#define PDU_HASH_ACC	127
-#define MSID_HASH_ACC	4095
+#define PDU_HASH_ACC	128
+#define MSID_HASH_ACC	4096
 #define HASH(i,j)	(i)&(j-1)
 
 #define IPV4	0x2100

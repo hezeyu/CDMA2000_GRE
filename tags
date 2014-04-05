@@ -1,0 +1,193 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+ACCEPTED	panaly.h	92;"	d
+ACCESSNW	panaly.h	87;"	d
+BLOCK_SIZE	file.h	6;"	d
+BUF_ACC	file.h	7;"	d
+BUF_READ	file.h	8;"	d
+BUF_WRITE	file.h	9;"	d
+CFLAGS	Makefile	/^CFLAGS = -g -c$/;"	m
+CHAP	panaly.h	13;"	d
+DB_NAME	sql.c	12;"	d	file:
+ESCAPE_OCTET	panaly.h	17;"	d
+ETH_AND_VLAN	panaly.h	62;"	d
+FRAME_BUF_SIZE	structure.h	10;"	d
+FRAME_HEADER_LEN	panaly.h	61;"	d
+GMT	file.h	/^	_Int32 GMT;$/;"	m	struct:time_val
+HASH	panaly.h	8;"	d
+IPCP	panaly.h	14;"	d
+IPCP_CON_ACK	panaly.h	94;"	d
+IPCP_CON_NAK	panaly.h	95;"	d
+IPCP_CON_REJECT	panaly.h	96;"	d
+IPCP_CON_REQUEST	panaly.h	93;"	d
+IPCP_handler	panaly.c	/^void IPCP_handler(u_char *frame, struct framehdr *fh, struct msidhash *mh){$/;"	f
+IPV4	panaly.h	10;"	d
+IP_AND_GRE	panaly.h	63;"	d
+LCP	panaly.h	11;"	d
+MSID_HASH_ACC	panaly.h	7;"	d
+MSID_LEN	sql.c	8;"	d	file:
+PAP	panaly.h	12;"	d
+PASSWORD	sql.c	11;"	d	file:
+PDU_HASH_ACC	panaly.h	6;"	d
+PPP_FLAG	panaly.h	16;"	d
+QUIT	structure.h	4;"	d
+REG_ACK	panaly.h	91;"	d
+REG_REPLY	panaly.h	89;"	d
+REG_REQUEST	panaly.h	88;"	d
+REG_UPDATE	panaly.h	90;"	d
+SERVER_HOST	sql.c	9;"	d	file:
+SGNLHDR_LEN	panaly.h	105;"	d
+SQL_FAILED	sql.c	6;"	d	file:
+SQL_LEN	sql.c	7;"	d	file:
+TABLE_NAME	sql.c	13;"	d	file:
+TK_MSID	panaly.h	/^struct TK_MSID{$/;"	s
+USER_NAME	sql.c	10;"	d	file:
+_FILE_H_	file.h	2;"	d
+_Int16	structure.h	/^typedef unsigned short	_Int16;$/;"	t
+_Int32	structure.h	/^typedef unsigned long	_Int32;$/;"	t
+_PANALY_H_	panaly.h	2;"	d
+_STRUCTURE_H_	structure.h	2;"	d
+b_mutex	file.h	/^	pthread_mutex_t b_mutex[BUF_ACC];$/;"	m	struct:buffer
+bnum	file.h	/^	int bnum;\/\/当前指针所在缓冲区$/;"	m	struct:buffer
+buf	file.h	/^	u_char *buf[BUF_ACC];$/;"	m	struct:buffer
+buffer	file.h	/^struct buffer{\/\/文件缓冲区$/;"	s
+cap_len	file.h	/^	_Int32 cap_len;$/;"	m	struct:pkthdr
+checksum	panaly.h	/^	_Int16 checksum;$/;"	m	struct:ipv4hdr
+checksum	panaly.h	/^	_Int16 checksum;$/;"	m	struct:udphdr
+dip	panaly.h	/^	_Int32 dip;$/;"	m	struct:TK_MSID
+dst	panaly.h	/^	_Int32 dst;$/;"	m	struct:ipv4hdr
+dst_mac	panaly.h	/^	u_char dst_mac[6];$/;"	m	struct:etherhdr
+dst_port	panaly.h	/^	_Int16 dst_port;$/;"	m	struct:udphdr
+empty	structure.h	/^	pthread_cond_t empty;$/;"	m	struct:frame_buf
+err_exit	main.c	/^void err_exit(struct put_msg **p, struct get_msg **g, FILE *f){$/;"	f
+eth	panaly.h	/^	struct etherhdr *eth;$/;"	m	struct:framehdr	typeref:struct:framehdr::etherhdr
+eth	panaly.h	/^	struct etherhdr *eth;$/;"	m	struct:signalhdr	typeref:struct:signalhdr::etherhdr
+eth	panaly.h	/^	struct etherhdr eth;$/;"	m	struct:listhdr	typeref:struct:listhdr::etherhdr
+etherhdr	panaly.h	/^struct etherhdr{$/;"	s
+fbuf	file.h	/^	struct frame_buf *fbuf;$/;"	m	struct:put_msg	typeref:struct:put_msg::frame_buf
+fbuf	panaly.h	/^	struct frame_buf *fbuf;$/;"	m	struct:get_msg	typeref:struct:get_msg::frame_buf
+file_buf_init	file.c	/^struct buffer * file_buf_init(FILE *mfile){$/;"	f
+file_len	file.h	/^	int file_len;$/;"	m	struct:put_msg
+filehdr	file.h	/^struct filehdr{$/;"	s
+flag_find	panaly.c	/^int flag_find(u_char *str, int len, int start){$/;"	f
+flag_offset	panaly.h	/^	_Int16 flag_offset;$/;"	m	struct:ipv4hdr
+flag_ver	panaly.h	/^	_Int16 flag_ver;$/;"	m	struct:grehdr
+forward	file.h	/^	int forward;\/\/缓冲区指针$/;"	m	struct:buffer
+frame_buf	structure.h	/^struct frame_buf{$/;"	s
+frame_buf_init	file.c	/^struct frame_buf * frame_buf_init(){$/;"	f
+frame_buf_put	file.c	/^void *frame_buf_put(void *msg){$/;"	f
+frame_escape	panaly.c	/^int frame_escape(u_char *frame, int frame_size){$/;"	f
+frame_len	structure.h	/^	int frame_len[FRAME_BUF_SIZE];$/;"	m	struct:frame_buf
+frame_make	file.c	/^u_char * frame_make(int size, struct buffer *mbuf, FILE *mfile){$/;"	f
+framehdr	panaly.h	/^struct framehdr{$/;"	s
+framehdr_make	panaly.c	/^void framehdr_make(struct framehdr *fh, u_char *frame){$/;"	f
+front	structure.h	/^	int front;$/;"	m	struct:frame_buf
+full	structure.h	/^	pthread_cond_t full;$/;"	m	struct:frame_buf
+get_msg	panaly.h	/^struct get_msg{$/;"	s
+get_msg_free	panaly.c	/^void get_msg_free(struct get_msg **g){$/;"	f
+get_msg_make	panaly.c	/^struct get_msg * get_msg_make(struct frame_buf *fbuf){$/;"	f
+gre	panaly.h	/^	struct grehdr *gre;$/;"	m	struct:framehdr	typeref:struct:framehdr::grehdr
+gre	panaly.h	/^	struct grehdr gre;$/;"	m	struct:listhdr	typeref:struct:listhdr::grehdr
+grehdr	panaly.h	/^struct grehdr{$/;"	s
+hash_free	panaly.c	/^int hash_free(struct listhash *hash, FILE *output, FILE *log){$/;"	f
+hash_init	panaly.c	/^void hash_init(struct listhash *hash){$/;"	f
+id	panaly.h	/^	_Int16 id;$/;"	m	struct:ipv4hdr
+id_translate	sql.c	/^char *id_translate(u_char *msid){$/;"	f
+idlist	panaly.h	/^	struct TK_MSID *idlist[MSID_HASH_ACC];$/;"	m	struct:msidhash	typeref:struct:msidhash::TK_MSID
+ip	panaly.h	/^	struct ipv4hdr *ip;$/;"	m	struct:framehdr	typeref:struct:framehdr::ipv4hdr
+ip	panaly.h	/^	struct ipv4hdr *ip;$/;"	m	struct:signalhdr	typeref:struct:signalhdr::ipv4hdr
+ip_dst	panaly.h	/^	_Int32 ip_dst;$/;"	m	struct:listhdr
+ip_src	panaly.h	/^	_Int32 ip_src;$/;"	m	struct:listhdr
+ipv4hdr	panaly.h	/^struct ipv4hdr{$/;"	s
+key	panaly.h	/^	_Int32 key;$/;"	m	struct:TK_MSID
+key	panaly.h	/^	_Int32 key;$/;"	m	struct:grehdr
+length	panaly.h	/^	_Int16 length;$/;"	m	struct:udphdr
+link_type	file.h	/^	_Int32 link_type;$/;"	m	struct:filehdr
+list	panaly.h	/^	struct listhdr *list[PDU_HASH_ACC];$/;"	m	struct:listhash	typeref:struct:listhash::listhdr
+listhash	panaly.h	/^struct listhash{$/;"	s
+listhdr	panaly.h	/^struct listhdr{$/;"	s
+listhdr_destroy	panaly.c	/^void listhdr_destroy(struct listhdr **list, struct listhdr *l){$/;"	f
+listhdr_make	panaly.c	/^struct listhdr * listhdr_make(struct listhdr **list, struct framehdr *fh){$/;"	f
+long_displace	panaly.c	/^_Int32 long_displace(_Int32 i){$/;"	f
+magic	file.h	/^	_Int32 magic;$/;"	m	struct:filehdr
+main	main.c	/^int main(int argc, char *argv[]){$/;"	f
+major_ver	file.h	/^	_Int16 major_ver;$/;"	m	struct:filehdr
+mbuf	file.h	/^	struct buffer *mbuf;$/;"	m	struct:pfread_msg	typeref:struct:pfread_msg::buffer
+mbuf	file.h	/^	struct buffer *mbuf;$/;"	m	struct:put_msg	typeref:struct:put_msg::buffer
+mfile	file.h	/^	FILE *mfile;$/;"	m	struct:pfread_msg
+mfile	file.h	/^	FILE *mfile;$/;"	m	struct:put_msg
+mframe	structure.h	/^	u_char *mframe[FRAME_BUF_SIZE];$/;"	m	struct:frame_buf
+mhash	panaly.h	/^	struct msidhash *mhash;$/;"	m	struct:get_msg	typeref:struct:get_msg::msidhash
+minor_ver	file.h	/^	_Int16 minor_ver;$/;"	m	struct:filehdr
+mpld	panaly.h	/^	u_char *mpld;$/;"	m	struct:payload
+msid	panaly.h	/^	u_char msid[8];$/;"	m	struct:TK_MSID
+msidhash	panaly.h	/^struct msidhash{$/;"	s
+msidhash_join	panaly.c	/^void msidhash_join(struct msidhash *mhash, struct TK_MSID *t){$/;"	f
+msql	sql.c	/^MYSQL msql;$/;"	v
+mtime	file.h	/^	_Int32 mtime;$/;"	m	struct:time_val
+mutex	structure.h	/^	pthread_mutex_t mutex;$/;"	m	struct:frame_buf
+next	panaly.h	/^	struct TK_MSID *next;$/;"	m	struct:TK_MSID	typeref:struct:TK_MSID::TK_MSID
+next_list	panaly.h	/^	struct listhdr *next_list;$/;"	m	struct:listhdr	typeref:struct:listhdr::listhdr
+next_pld	panaly.h	/^	struct payload *next_pld;$/;"	m	struct:payload	typeref:struct:payload::payload
+objects	Makefile	/^objects = main.o file.o panaly.o$/;"	m
+p	panaly.h	/^	int p;$/;"	m	struct:TK_MSID
+packet_restructure	panaly.c	/^int packet_restructure(u_char **tar, struct listhdr *l, FILE *log){$/;"	f
+payload	panaly.h	/^struct payload{$/;"	s
+payload_pop	panaly.c	/^void payload_pop(struct listhdr *l){$/;"	f
+payload_push	panaly.c	/^void payload_push(struct listhdr *l, struct payload *p){$/;"	f
+payload_splice	panaly.c	/^int payload_splice(u_char **str, struct listhdr *l, struct payload *p, FILE *log){$/;"	f
+pdu_get	panaly.c	/^void *pdu_get(void *msg){$/;"	f
+pfread	file.c	/^void *pfread(void *msg){$/;"	f
+pfread_msg	file.h	/^struct pfread_msg{$/;"	s
+pkthdr	file.h	/^struct pkthdr{$/;"	s
+pkthdr_read	file.c	/^int pkthdr_read(struct buffer *mbuf, struct pkthdr *mpkthdr, FILE *mfile){$/;"	f
+pld_list	panaly.h	/^	struct payload *pld_list;$/;"	m	struct:listhdr	typeref:struct:listhdr::payload
+plen	panaly.h	/^	int plen;$/;"	m	struct:payload
+pnum	panaly.h	/^	int pnum;\/\/测试用$/;"	m	struct:payload
+ppp_complt	panaly.c	/^int ppp_complt(u_char *frame, int frame_size, struct framehdr *fh, $/;"	f
+ppp_incomplt	panaly.c	/^struct listhdr * ppp_incomplt(u_char *frame, struct framehdr *fh, $/;"	f
+pri_cfi_id	panaly.h	/^	_Int16 pri_cfi_id;$/;"	m	struct:virlanhdr
+prot	panaly.h	/^	_Int16 prot;$/;"	m	struct:grehdr
+proto	panaly.h	/^	u_char proto;$/;"	m	struct:ipv4hdr
+pthread_wait	main.c	/^int pthread_wait(pthread_t *thread1, pthread_t *thread2){$/;"	f
+put_msg	file.h	/^struct put_msg{$/;"	s
+put_msg_free	file.c	/^void put_msg_free(struct put_msg **p){$/;"	f
+put_msg_make	file.c	/^struct put_msg *put_msg_make(FILE *mfile, int file_len){$/;"	f
+quit	structure.h	/^	int quit;$/;"	m	struct:frame_buf
+real_len	file.h	/^	_Int32 real_len;$/;"	m	struct:pkthdr
+rear	structure.h	/^	int rear;$/;"	m	struct:frame_buf
+seq	panaly.h	/^	_Int32 seq;$/;"	m	struct:grehdr
+seq	panaly.h	/^	_Int32 seq;$/;"	m	struct:payload
+service	panaly.h	/^	u_char service;$/;"	m	struct:ipv4hdr
+short_displace	panaly.c	/^_Int16 short_displace(_Int16 i){$/;"	f
+signal_analy	panaly.c	/^void *signal_analy(void *msg){$/;"	f
+signalhdr	panaly.h	/^struct signalhdr{$/;"	s
+signalhdr_make	panaly.c	/^struct signalhdr * signalhdr_make(u_char *frame){$/;"	f
+sip	panaly.h	/^	_Int32 sip;$/;"	m	struct:TK_MSID
+snap_len	file.h	/^	_Int32 snap_len;$/;"	m	struct:filehdr
+sncpy	file.c	/^void sncpy(u_char *tar, u_char *src, int n){$/;"	f
+sql_init	sql.c	/^int sql_init(){$/;"	f
+sql_insert	sql.c	/^int sql_insert(u_char *msid, _Int32 mip, _Int32 key, _Int32 src, _Int32 dst){$/;"	f
+src	panaly.h	/^	_Int32 src;$/;"	m	struct:ipv4hdr
+src_mac	panaly.h	/^	u_char src_mac[6];$/;"	m	struct:etherhdr
+src_port	panaly.h	/^	_Int16 src_port;$/;"	m	struct:udphdr
+time_stamp	file.h	/^	_Int32 time_stamp;$/;"	m	struct:filehdr
+time_val	file.h	/^struct time_val{$/;"	s
+time_zone	file.h	/^	_Int32 time_zone;$/;"	m	struct:filehdr
+tkmsid_make	panaly.c	/^struct TK_MSID * tkmsid_make(u_char *frame, struct signalhdr *s, int p){$/;"	f
+total_len	panaly.h	/^	_Int16 total_len;$/;"	m	struct:ipv4hdr
+ttl	panaly.h	/^	u_char ttl;$/;"	m	struct:ipv4hdr
+tv	file.h	/^	struct time_val tv;$/;"	m	struct:pkthdr	typeref:struct:pkthdr::time_val
+type	panaly.h	/^	_Int16 type;$/;"	m	struct:etherhdr
+type	panaly.h	/^	_Int16 type;$/;"	m	struct:virlanhdr
+u_char	structure.h	/^typedef unsigned char	u_char;$/;"	t
+udp	panaly.h	/^	struct udphdr *udp;$/;"	m	struct:signalhdr	typeref:struct:signalhdr::udphdr
+udphdr	panaly.h	/^struct udphdr{$/;"	s
+ver_len	panaly.h	/^	u_char ver_len;$/;"	m	struct:ipv4hdr
+virlanhdr	panaly.h	/^struct virlanhdr{$/;"	s
+vlan	panaly.h	/^	struct virlanhdr *vlan;$/;"	m	struct:framehdr	typeref:struct:framehdr::virlanhdr
+vlan	panaly.h	/^	struct virlanhdr *vlan;$/;"	m	struct:signalhdr	typeref:struct:signalhdr::virlanhdr

@@ -36,8 +36,8 @@ int sql_init(){
 	u_char query[SQL_LEN];
 	sprintf(query, "DROP TABLE %s", TABLE_NAME);
 	mysql_query(&msql, query);
-	sprintf(query, "CREATE TABLE %s(msid VARCHAR(8),mip INT UNSIGNED,"
-			"grekey INT UNSIGNED, srcip INT UNSIGNED, dstip INT UNSIGNED)", 
+	sprintf(query, "CREATE TABLE %s(MSID VARCHAR(8),IP INT UNSIGNED,"
+			"GK INT UNSIGNED, PDSN INT UNSIGNED, PCF INT UNSIGNED)", 
 			TABLE_NAME);
 	if(mysql_query(&msql, query)){
 		fprintf(stderr, "create table error %d:%s\n",
@@ -53,7 +53,7 @@ int sql_insert(u_char *msid, _Int32 mip, _Int32 key, _Int32 src, _Int32 dst){
 	char *id = id_translate(msid);
 	u_char insert[SQL_LEN];
 	sprintf(insert,
-			"INSERT INTO %s(msid,mip,grekey,srcip,dstip) VALUES"
+			"INSERT INTO %s(MSID,IP,GK,PDSN,PCF) VALUES"
 			"('%s',%lu,%lu,%lu,%lu)",
 			TABLE_NAME, id, mip, key, src, dst);
 	if(mysql_query(&msql, insert)){

@@ -94,13 +94,12 @@ struct listhdr * ppp_incomplt(u_char *frame, struct framehdr *fh,
 
 void IPCP_handler(u_char *frame, struct framehdr *fh, struct msidhash *mh){
 	if(frame[0]==IPCP_CON_NAK){
-//		printf("find a NAK\n");
+		//		printf("find a NAK\n");
 		_Int32 j = fh->ip->src+fh->ip->dst+fh->gre->key;
 		int hash_pos = HASH(j, MSID_HASH_ACC);
 		struct TK_MSID *t = mh->idlist[hash_pos];
 		while(t!=NULL){
-			if(fh->gre->key==t->key&&fh->ip->src==t->sip
-					&&fh->ip->dst==t->dip){
+			if(fh->gre->key==t->key){
 				u_char c[4]={frame[6],frame[7],frame[8],frame[9]};
 				_Int32 *i = (_Int32 *)c;
 				sql_insert(t->msid,long_displace(*i),
@@ -401,8 +400,13 @@ struct TK_MSID * tkmsid_make(u_char *frame, struct signalhdr *s, int p){
 void msidhash_join(struct msidhash *mhash, struct TK_MSID *t){
 	int hash_pos = HASH(t->sip+t->dip+t->key, MSID_HASH_ACC);
 	struct TK_MSID *tmp = mhash->idlist[hash_pos];
+	while(tmp!=NULL){
+		if(t->key==tmp->key)
+			return;
+		tmp = tmp->next;
+	}
+	t->next = mhash->idlist[hash_pos];
 	mhash->idlist[hash_pos] = t;
-	t->next = tmp;
 }
 
 struct get_msg * get_msg_make(struct frame_buf *fbuf){
@@ -420,9 +424,9 @@ void get_msg_free(struct get_msg **g){
 	int i,j;
 	struct TK_MSID *t;
 	for(i=0;i<MSID_HASH_ACC;i++){
-//				j=0;
+		//					j=0;
 		while((*g)->mhash->idlist[i]!=NULL){
-//						j++;
+			//						j++;
 			//			t = (*g)->mhash->idlist[i];
 			//			printf("%.6d:\t",t->p);
 			//			for(j=0;j<4;j++)
@@ -439,7 +443,7 @@ void get_msg_free(struct get_msg **g){
 			free((*g)->mhash->idlist[i]);
 			(*g)->mhash->idlist[i] = t;
 		}
-//				printf("%d in hash %d\n", j, i);
+		//					printf("%d in hash %d\n", j, i);
 	}
 	free(*g);
 }
@@ -462,17 +466,16 @@ void *signal_analy(void *msg){
 		p++;
 		//信令处理
 		frame = fbuf->mframe[fbuf->front];
+		fbuf->mframe[fbuf->front] = NULL;
+		fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
+		pthread_cond_signal(&(fbuf->empty));
+		pthread_mutex_unlock(&(fbuf->mutex));
+
 		s = signalhdr_make(frame);
 		if(s->udp->src_port==ACCESSNW && s->udp->dst_port==ACCESSNW){
 			switch(frame[SGNLHDR_LEN]){
 				case REG_REPLY:
 					if(frame[SGNLHDR_LEN+1]==ACCEPTED){
-						t = tkmsid_make((frame+SGNLHDR_LEN+20), s, p);
-						msidhash_join(mhash, t);
-					}
-					break;
-				case REG_ACK:
-					if(frame[SGNLHDR_LEN+3]==ACCEPTED){
 						t = tkmsid_make((frame+SGNLHDR_LEN+20), s, p);
 						msidhash_join(mhash, t);
 					}
@@ -483,11 +486,8 @@ void *signal_analy(void *msg){
 		}
 		//一个帧处理完后释放内存，移动队列游标
 		free(s);
-		free(fbuf->mframe[fbuf->front]);
-		fbuf->mframe[fbuf->front] = NULL;
-		fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
-		pthread_cond_signal(&(fbuf->empty));
-		pthread_mutex_unlock(&(fbuf->mutex));
+		free(frame);
+		frame = NULL;
 	}while(1);
 	printf("signal analysis finished\n");
 	pthread_exit((void *)2);

@@ -7,6 +7,8 @@
 #define MSID_HASH_ACC	4096
 #define HASH(i,j)	(i)&(j-1)
 
+#define GRE_FLAG	0x2f
+#define UDP_FLAG	0x11
 #define IPV4	0x2100
 #define LCP	0x21c0
 #define PAP	0x23c0
@@ -90,10 +92,16 @@ struct listhash{
 #define REG_UPDATE	0x14
 #define REG_ACK	0x15
 #define ACCEPTED	0x00
+#define A11_ACTIVE_START	0x02
+#define A11_ACTIVE_STOP	0x03
 #define IPCP_CON_REQUEST	0x01
 #define IPCP_CON_ACK	0x02
 #define IPCP_CON_NAK	0x03
 #define IPCP_CON_REJECT	0x04
+#define RADIUS_ACCT_REQ	0x04
+#define ACCT_STATUS_START	0x01
+#define ACCT_STATUS_UPDATE	0x03
+#define BCD(x)	(x)&0x0f|0x30
 
 struct udphdr{
 	_Int16 src_port;
@@ -115,7 +123,8 @@ struct TK_MSID{
 	_Int32 sip;
 	_Int32 dip;
 	_Int32 key;
-	u_char msid[8];
+	u_char msid[16];
+	u_char meid[15];
 	struct TK_MSID *next;
 	int p;
 };
@@ -133,5 +142,6 @@ struct get_msg * get_msg_make(struct frame_buf *);
 void get_msg_free(struct get_msg **);
 void *pdu_get(void *);
 void *signal_analy(void *);
+void *frame_analy(void *);
 
 #endif

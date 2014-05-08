@@ -1,5 +1,5 @@
 objects = main.o file.o panaly.o
-CFLAGS = -g -c
+CFLAGS = -g -c -D_FILE_OFFSET_BITS=64
 
 edit:$(objects)
 	gcc $(objects) -o main -lpthread -lmysqlclient

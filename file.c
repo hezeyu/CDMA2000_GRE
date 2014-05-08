@@ -11,7 +11,7 @@ struct buffer * file_buf_init(FILE *mfile){
 	mbuf->bnum = 0;
 	int i;
 	for(i=0; i<BUF_ACC; i++){
-		mbuf->buf[i] = (u_char *)malloc(BLOCK_SIZE);
+//		mbuf->buf[i] = (u_char *)malloc(BLOCK_SIZE);
 		pthread_mutex_init(&mbuf->b_mutex[i], NULL);
 		fread((void *)mbuf->buf[i],1,BLOCK_SIZE,mfile);
 	}
@@ -34,7 +34,7 @@ struct frame_buf * frame_buf_init(){
 	return fbuf;
 }
 
-struct put_msg *put_msg_make(FILE *mfile, int file_len){
+struct put_msg *put_msg_make(FILE *mfile, long long file_len){
 	struct put_msg * p = (struct put_msg *)malloc(sizeof(struct put_msg));
 	p->mbuf = file_buf_init(mfile);
 	p->fbuf = frame_buf_init();
@@ -44,9 +44,9 @@ struct put_msg *put_msg_make(FILE *mfile, int file_len){
 }
 
 void put_msg_free(struct put_msg **p){
-	int i;
-	for(i=0; i<BUF_ACC; i++)
-		free((*p)->mbuf->buf[i]);
+//	int i;
+//	for(i=0; i<BUF_ACC; i++)
+//		free((*p)->mbuf->buf[i]);
 	free((*p)->mbuf);
 	free((*p)->fbuf);
 	free(*p);
@@ -57,6 +57,8 @@ int pkthdr_read(struct buffer *mbuf, struct pkthdr *mpkthdr, FILE *mfile){
 	if((BLOCK_SIZE - mbuf->forward)>=i){	//头部完整
 		sncpy((u_char *)mpkthdr, (mbuf->buf[mbuf->bnum]+mbuf->forward), i);
 		mbuf->forward+=i;
+		if(mpkthdr->real_len > 2000 || mpkthdr->real_len < 0)
+			printf("\n1\t%lu\n",mpkthdr->real_len);
 	}else{	//头部不完整，需要继续读取文件
 		int k = BLOCK_SIZE - mbuf->forward;
 		sncpy((u_char *)mpkthdr, (mbuf->buf[mbuf->bnum]+mbuf->forward), k);
@@ -67,6 +69,8 @@ int pkthdr_read(struct buffer *mbuf, struct pkthdr *mpkthdr, FILE *mfile){
 
 		sncpy(((u_char *)mpkthdr+k), mbuf->buf[mbuf->bnum], i-k);
 		mbuf->forward = (i+mbuf->forward)%(BLOCK_SIZE);
+		if(mpkthdr->real_len > 2000 || mpkthdr->real_len < 0)
+			printf("\n2\t%lu\n",mpkthdr->real_len);
 	}
 	//输出pkthdr信息
 
@@ -116,10 +120,10 @@ u_char * frame_make(int size, struct buffer *mbuf, FILE *mfile){
 void *frame_buf_put(void *msg){
 	struct buffer *mbuf = ((struct put_msg *)msg)->mbuf;
 	FILE *mfile = ((struct put_msg *)msg)->mfile;
-	int file_len = ((struct put_msg *)msg)->file_len;
+	long long file_len = ((struct put_msg *)msg)->file_len;
 	struct frame_buf *fbuf = ((struct put_msg *)msg)->fbuf;
 
-	int rd_already = 0;	//记录已经处理的字节数
+	long long rd_already = 0;	//记录已经处理的字节数
 	//获取文件信息
 	pthread_mutex_lock(&(mbuf->b_mutex[mbuf->bnum]));
 
@@ -150,6 +154,11 @@ void *frame_buf_put(void *msg){
 		p++;
 		rd_already += pkthdr_read(mbuf, &mpkthdr, mfile);
 
+		if((file_len-rd_already)<mpkthdr.real_len){
+			fbuf->quit = QUIT;
+			pthread_mutex_unlock(&(fbuf->mutex));
+			pthread_exit((void *)1);
+		}
 		//读取完整数据帧并加入队列
 		fbuf->mframe[fbuf->rear] = 
 			frame_make(mpkthdr.real_len, mbuf, mfile);

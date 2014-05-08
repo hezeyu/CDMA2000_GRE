@@ -32,11 +32,18 @@ struct pkthdr{
 	_Int32 cap_len;
 };
 
-struct buffer{//文件缓冲区
-	u_char *buf[BUF_ACC];
+//struct buffer{//文件缓冲区
+//	u_char *buf[BUF_ACC];
+//	pthread_mutex_t b_mutex[BUF_ACC];
+//	int bnum;//当前指针所在缓冲区
+//	int forward;//缓冲区指针
+//};
+
+struct buffer{
+	u_char buf[BUF_ACC][BLOCK_SIZE];
 	pthread_mutex_t b_mutex[BUF_ACC];
-	int bnum;//当前指针所在缓冲区
-	int forward;//缓冲区指针
+	int bnum;
+	int forward;
 };
 
 struct pfread_msg{
@@ -48,11 +55,11 @@ struct put_msg{
 	struct buffer *mbuf;
 	struct frame_buf *fbuf;
 	FILE *mfile;
-	int file_len;
+	long long file_len;
 };
 
 void *frame_buf_put(void *);//frame_buf写
-struct put_msg *put_msg_make(FILE *, int);
+struct put_msg *put_msg_make(FILE *, long long);
 void put_msg_free(struct put_msg **);
 
 struct buffer * file_buf_init(FILE *);

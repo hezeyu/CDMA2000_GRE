@@ -3,6 +3,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include "panaly.h"
 #include "file.h"
 
@@ -22,7 +23,7 @@ int pthread_wait(pthread_t *thread1, pthread_t *thread2){
 }
 
 int main(int argc, char *argv[]){
-	if(argc < 3){
+	if(argc < 2){
 		fprintf(stderr,"%s\n","No file path!");
 		exit(1);
 	}
@@ -31,20 +32,28 @@ int main(int argc, char *argv[]){
 	struct put_msg *pmsg;
 	struct get_msg *gmsg;
 	pthread_t put, get;
-	int err = 0, file_len;
+	int err = 0;
+	long long file_len;
 
 	gettimeofday(&tv1, NULL);
 
-//--进行信令分析----------------------------
 	mfile = fopen(argv[1], "rb");
 	if(mfile == 0){
 		fprintf(stderr,"%s\n","No such file!");
 		exit(1);
 	}
 	//获得文件总长度
-	fseek(mfile,0,SEEK_END);
-	file_len = ftell(mfile);
-	fseek(mfile,0,SEEK_SET);
+	struct stat mstat;
+	if(stat(argv[1],&mstat)<0){
+		fprintf(stderr,"%s\n","stat error!");
+		fclose(mfile);
+		exit(1);
+	}
+	file_len = mstat.st_size;
+//	fseek(mfile,0,SEEK_END);
+//	file_len = ftell(mfile);
+	printf("%lld\n", file_len);
+//	fseek(mfile,0,SEEK_SET);
 
 	pmsg = put_msg_make(mfile, file_len);
 	gmsg = get_msg_make(pmsg->fbuf);
@@ -55,7 +64,7 @@ int main(int argc, char *argv[]){
 		exit(3);
 	}
 	
-	err = pthread_create(&get, NULL, &signal_analy, (void *)gmsg);
+	err = pthread_create(&get, NULL, &frame_analy, (void *)gmsg);
 	if(err != 0){
 		fprintf(stderr, "can't start signal_analy:%s\n", strerror(err));
 		err_exit(&pmsg, &gmsg, mfile);
@@ -67,39 +76,6 @@ int main(int argc, char *argv[]){
 		err_exit(&pmsg, &gmsg, mfile);
 		exit(3);
 	}
-
-	put_msg_free(&pmsg);
-	fclose(mfile);
-
-//--进行用户数据分析-------------------------
-	mfile = fopen(argv[2], "rb");
-	if(mfile == 0){
-		fprintf(stderr,"%s\n","No such file!");
-		exit(1);
-	}
-	//获得文件总长度
-	fseek(mfile,0,SEEK_END);
-	file_len = ftell(mfile);
-	fseek(mfile,0,SEEK_SET);
-
-	pmsg = put_msg_make(mfile, file_len);
-	gmsg->fbuf = pmsg->fbuf;
-	err = pthread_create(&put, NULL, &frame_buf_put, (void *)pmsg);
-	if(err != 0){
-		fprintf(stderr, "can't start frame_buf_put:%s\n", strerror(err));
-		err_exit(&pmsg, &gmsg, mfile);
-		exit(3);
-	}
-
-	err = pthread_create(&get, NULL, &pdu_get, (void *)gmsg);
-	if(err != 0){
-		fprintf(stderr, "can't start pdu_get:%s\n", strerror(err));
-		err_exit(&pmsg, &gmsg, mfile);
-		exit(3);
-	}
-	
-	if((err = pthread_wait(&put, &get)) != 0)
-		fprintf(stderr, "pthread_wait failed\n");
 
 	put_msg_free(&pmsg);
 	get_msg_free(&gmsg);

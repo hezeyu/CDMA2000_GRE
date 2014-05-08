@@ -1,3 +1,3 @@
 #!/bin/sh
 rm -rf ./core
-./main ~/common/pcap_file/signal.pcap ~/common/pcap_file/gre_2.pcap
+./main ~/common/pcap_file/signal.pcap

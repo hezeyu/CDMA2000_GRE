@@ -22,9 +22,13 @@ _Int32 long_displace(_Int32);
 int frame_escape(u_char *, int);
 void IPCP_handler(u_char *frame, struct framehdr *, struct msidhash *);
 
-struct signalhdr * signalhdr_make(u_char *);
+void signalhdr_make(struct signalhdr *, u_char *);
 struct TK_MSID * tkmsid_make(u_char *, struct signalhdr *, int);
 void msidhash_join(struct msidhash *, struct TK_MSID *);
+void msidhash_quit(struct msidhash *, struct TK_MSID *);
+void radius_handler(u_char *, FILE *, int);
+
+int ue_acc, msisdn_acc;
 
 int ppp_complt(u_char *frame, int frame_size, struct framehdr *fh, 
 		struct  msidhash *mh, FILE *output){
@@ -40,16 +44,16 @@ int ppp_complt(u_char *frame, int frame_size, struct framehdr *fh,
 			frame_escape((frame+start),end-start);
 			protocol = (_Int16 *)(frame+start+2);
 			switch(*protocol){
-				case IPV4:
-					//是IP协议说明是数据帧，进行解封装处理
-					start+=4;
-					t[0] = frame[start+2]; t[1] = frame[start+3];
-					size = (_Int16 *)t;
-					*size = short_displace(*size);
-					fwrite(size, 1, sizeof(_Int16), output);
-					fwrite((frame+start), 1, *size, output);
-					ipnum++;
-					break;
+				//				case IPV4:
+				//					//是IP协议说明是数据帧，进行解封装处理
+				//					start+=4;
+				//					t[0] = frame[start+2]; t[1] = frame[start+3];
+				//					size = (_Int16 *)t;
+				//					*size = short_displace(*size);
+				//					fwrite(size, 1, sizeof(_Int16), output);
+				//					fwrite((frame+start), 1, *size, output);
+				//					ipnum++;
+				//					break;
 				case IPCP:
 					start+=4;
 					IPCP_handler((frame+start), fh, mh);
@@ -94,7 +98,6 @@ struct listhdr * ppp_incomplt(u_char *frame, struct framehdr *fh,
 
 void IPCP_handler(u_char *frame, struct framehdr *fh, struct msidhash *mh){
 	if(frame[0]==IPCP_CON_NAK){
-		//		printf("find a NAK\n");
 		_Int32 j = fh->ip->src+fh->ip->dst+fh->gre->key;
 		int hash_pos = HASH(j, MSID_HASH_ACC);
 		struct TK_MSID *t = mh->idlist[hash_pos];
@@ -102,8 +105,9 @@ void IPCP_handler(u_char *frame, struct framehdr *fh, struct msidhash *mh){
 			if(fh->gre->key==t->key){
 				u_char c[4]={frame[6],frame[7],frame[8],frame[9]};
 				_Int32 *i = (_Int32 *)c;
-				sql_insert(t->msid,long_displace(*i),
-						t->key,t->sip,t->dip);
+				sql_insert(t->msid,t->meid,long_displace(*i),t->key);
+				printf("\rthe number of UE be found : %d", ++ue_acc);
+				fflush(stdout);
 				break;
 			}
 			t = t->next;
@@ -303,95 +307,44 @@ int frame_escape(u_char *frame, int frame_size){
 	return size;
 }
 
-void *pdu_get(void *msg){
-	printf("PDU analyzing...\n");
-	struct frame_buf *fbuf = ((struct get_msg *)msg)->fbuf;
-	struct msidhash *mhash = ((struct get_msg *)msg)->mhash;
-	sql_init();
-	struct listhdr *l=NULL;
-	u_char *frame=NULL, *tar=NULL;
-	FILE *output = fopen("./packet", "wb");
-	FILE *log = fopen("./log", "wb");
-	struct listhash packet_hash;
-	hash_init(&packet_hash);
-	struct framehdr fh;
-	//p分析过的帧数，ip_acc获得的ip数据包数,pld_len组包后获得的pdu长度
-	int p=0, ip_acc=0, hash_pos=0, pld_len=0;
-	int t=0;//t临时变量
-	do{
-		pthread_mutex_lock(&(fbuf->mutex));
-		if(fbuf->front == fbuf->rear){
-			if(fbuf->quit == QUIT)
-				break;
-			pthread_cond_wait(&(fbuf->full), &(fbuf->mutex));
-		}
-		p++;
-		frame = fbuf->mframe[fbuf->front];
-		fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
-		pthread_cond_signal(&(fbuf->empty));
-		pthread_mutex_unlock(&(fbuf->mutex));
-		framehdr_make(&fh, frame);
-		t = fh.ip->total_len + ETH_AND_VLAN;//目的是去掉帧结尾的补位
-
-		if(frame[FRAME_HEADER_LEN] == PPP_FLAG&&frame[t-1] == PPP_FLAG)
-			//封装完整
-			ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
-					t-FRAME_HEADER_LEN,&fh,mhash,output);
-		else{
-			//封装不完整
-			hash_pos = HASH(fh.gre->key, PDU_HASH_ACC);
-			l = ppp_incomplt(frame,&fh,&packet_hash.list[hash_pos],output,p);
-			//跳转到组包程序
-			pld_len = packet_restructure(&tar, l, log);
-			if(pld_len > 0){
-				t = ppp_complt(tar, pld_len, &fh, mhash, output);
-				ip_acc+=t;
-				fprintf(log, "packets:%d\n", t);
-			}else if(pld_len == 0)
-				fprintf(log, "packets:%d\n", 0);
-			if(l->pld_list == NULL)
-				listhdr_destroy(&packet_hash.list[hash_pos], l);
-			free(tar);
-			tar = NULL;
-		}
-		//处理完一个帧后释放空间
-		free(frame);
-		frame = NULL;
-	}while(1);
-	//文件中所有帧扫描结束，对表中剩余数据进行处理并释放空间
-	ip_acc+=hash_free(&packet_hash, output, log);
-	fclose(output);
-	fclose(log);
-	printf("PDU analysis finished\nget %d ip packets\n", ip_acc);
-	pthread_exit((void *)2);
-}
-
-struct signalhdr * signalhdr_make(u_char *frame){
-	struct signalhdr *s;
-	s = (struct signalhdr *)malloc(sizeof(struct signalhdr));
+void signalhdr_make(struct signalhdr *sh, u_char *frame){
 	int p = 0;
-	s->eth = (struct etherhdr *)frame;
+	sh->eth = (struct etherhdr *)frame;
 	p+=sizeof(struct etherhdr);
-	s->vlan = (struct virlanhdr *)(frame + p);
+	sh->vlan = (struct virlanhdr *)(frame + p);
 	p+=sizeof(struct virlanhdr);
-	s->ip = (struct ipv4hdr *)(frame + p);
-	s->ip->src = long_displace(s->ip->src);
-	s->ip->dst = long_displace(s->ip->dst);
+	sh->ip = (struct ipv4hdr *)(frame + p);
+	sh->ip->src = long_displace(sh->ip->src);
+	sh->ip->dst = long_displace(sh->ip->dst);
 	p+=sizeof(struct ipv4hdr);
-	s->udp = (struct udphdr *)(frame + p);
-	return s;
+	sh->udp = (struct udphdr *)(frame + p);
 }
 
 struct TK_MSID * tkmsid_make(u_char *frame, struct signalhdr *s, int p){
 	struct TK_MSID *t;
 	t = (struct TK_MSID *)malloc(sizeof(struct TK_MSID));
-	int i;
+	int i,j=0;
 	t->sip = s->ip->src;
 	t->dip = s->ip->dst;
 	_Int32 *k = (_Int32 *)(frame+4);
 	t->key = long_displace(*k);
-	for(i=0;i<8;i++)
-		t->msid[i] = frame[15+i];
+	t->msid[j] = BCD(frame[15]>>4);
+	for(i=16;i<23;i++){
+		t->msid[++j] = BCD(frame[i]);
+		t->msid[++j] = BCD(frame[i]>>4);
+	}
+	t->msid[++j] = '\0';
+	switch(frame[44]){
+		case A11_ACTIVE_START:
+			for(i=0;i<14;i++)
+				t->meid[i] = frame[77+i];
+			t->meid[i] = '\0';
+			break;
+		case A11_ACTIVE_STOP:
+			break;
+		default:
+			break;
+	}
 	t->next = NULL;
 	t->p = p;
 	return t;
@@ -407,6 +360,64 @@ void msidhash_join(struct msidhash *mhash, struct TK_MSID *t){
 	}
 	t->next = mhash->idlist[hash_pos];
 	mhash->idlist[hash_pos] = t;
+}
+
+void msidhash_quit(struct msidhash *mhash, struct TK_MSID *t){
+	int hash_pos = HASH(t->sip+t->dip+t->key, MSID_HASH_ACC);
+	struct TK_MSID *tmp1 = mhash->idlist[hash_pos];
+	struct TK_MSID *tmp2 = tmp1;
+	if(tmp1 == NULL)
+		return;
+
+	if(t->key==tmp1->key){
+		mhash->idlist[hash_pos] = tmp1->next;
+		free(tmp1);
+		return;
+	}
+	while(t->key!=tmp1->key){
+		tmp2 = tmp1;
+		tmp1 = tmp1->next;
+		if(tmp1 == NULL)
+			return;
+	}
+	tmp2->next = tmp1->next;
+	free(tmp1);
+}
+
+void radius_handler(u_char *frame, FILE *log, int p){
+	if(frame[46]==RADIUS_ACCT_REQ && frame[106]==ACCT_STATUS_START){
+		u_char c[4] = {0x00,0x00,0x00,0x00};
+		_Int32 *mip = (_Int32 *)c, *offset = (_Int32 *)c;
+		u_char msid[16];
+		u_char msisdn[14];
+		int t, u;
+		u=(frame[119]==0x34)?119:124;
+		for(t=0;t<15;t++)
+			msid[t] = frame[u+t];
+		msid[t] = '\0';
+
+		u+=58;
+		_Int16 *i = (_Int16 *)(frame+u);
+		while(*i != 0xce51){
+			c[0] = frame[u-3];
+			u+=(*offset);
+			i = (_Int16 *)(frame+u);
+		}
+		c[0] = frame[u+3];
+		*offset-=2;
+		if((*offset) > 13)
+			return;
+		u+=4;
+		for(t=0;t<(*offset);t++)
+			msisdn[t] = frame[u+t];
+		msisdn[t] = '\0';
+		c[0]=frame[100]; c[1]=frame[99]; c[2]=frame[98]; c[3]=frame[97];
+		sql_update(msisdn, msid, *mip);
+		msisdn_acc++;
+		printf("\rMSISDN be found : %d", ++msisdn_acc);
+		fflush(stdout);
+//		fprintf(log,"%d\t%s\t%s\t%lu\n",p,msisdn,msid,*mip);
+	}
 }
 
 struct get_msg * get_msg_make(struct frame_buf *fbuf){
@@ -448,14 +459,26 @@ void get_msg_free(struct get_msg **g){
 	free(*g);
 }
 
-void *signal_analy(void *msg){
-	printf("signal analyzing...\n");
+void *frame_analy(void *msg){
+	ue_acc = 0;
+	printf("frame analyzing...\n");
 	struct frame_buf *fbuf = ((struct get_msg *)msg)->fbuf;
 	struct msidhash *mhash = ((struct get_msg *)msg)->mhash;
-	struct signalhdr *s = NULL;
-	struct TK_MSID *t;
-	u_char *frame;
-	int p = 0;
+	struct TK_MSID *tkmsid;
+	struct listhdr *l=NULL;
+	u_char *frame=NULL, *tar=NULL;
+	FILE *output = fopen("./packet", "wb");
+	FILE *log = fopen("./log", "wb");
+	struct listhash packet_hash;
+	struct signalhdr sh;
+	struct framehdr fh;
+	//p分析过的帧数，ip_acc获得的ip数据包数,pld_len组包后获得的pdu长度
+	int p=0, ip_acc=0, hash_pos=0, pld_len=0;
+	int t=0;//t临时变量
+	short *lifetime = (short *)malloc(2);
+	sql_init();
+	hash_init(&packet_hash);
+
 	do{
 		pthread_mutex_lock(&(fbuf->mutex));
 		if(fbuf->front == fbuf->rear){
@@ -464,32 +487,78 @@ void *signal_analy(void *msg){
 			pthread_cond_wait(&(fbuf->full), &(fbuf->mutex));
 		}
 		p++;
-		//信令处理
 		frame = fbuf->mframe[fbuf->front];
 		fbuf->mframe[fbuf->front] = NULL;
 		fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
 		pthread_cond_signal(&(fbuf->empty));
 		pthread_mutex_unlock(&(fbuf->mutex));
 
-		s = signalhdr_make(frame);
-		if(s->udp->src_port==ACCESSNW && s->udp->dst_port==ACCESSNW){
-			switch(frame[SGNLHDR_LEN]){
-				case REG_REPLY:
-					if(frame[SGNLHDR_LEN+1]==ACCEPTED){
-						t = tkmsid_make((frame+SGNLHDR_LEN+20), s, p);
-						msidhash_join(mhash, t);
-					}
-					break;
-				default:
-					break;
+//		printf("\rframe %d", p);
+//		fflush(stdout);
+//		if(p == 1476234)
+//			printf("hello\n");
+		if(frame[27] == UDP_FLAG){
+			signalhdr_make(&sh, frame);
+			//A11信令处理
+			if(sh.udp->src_port==ACCESSNW&&sh.udp->dst_port==ACCESSNW){
+//				switch(frame[SGNLHDR_LEN]){
+//					case REG_REQUEST:
+//						lifetime[0] = frame[49];
+//						lifetime[1] = frame[48];
+//						if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
+//							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),&sh,p);
+//							msidhash_join(mhash, tkmsid);
+//						}
+//						else if(*lifetime==0){
+//							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),&sh,p);
+//							msidhash_quit(mhash, tkmsid);
+//							free(tkmsid);
+//							tkmsid = NULL;
+//						}
+//						break;
+//					default:
+//						break;
+//				}
 			}
+			//RADIUS数据处理
+			else
+				radius_handler(frame, log, p);
 		}
-		//一个帧处理完后释放内存，移动队列游标
-		free(s);
+		else if(frame[27] == GRE_FLAG){
+			//用户数据处理
+//			framehdr_make(&fh, frame);
+//			t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
+//			if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
+//				//封装完整
+//				ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
+//						t-FRAME_HEADER_LEN,&fh,mhash,output);
+			//			else{
+			//				//封装不完整
+			//				hash_pos = HASH(fh.gre->key, PDU_HASH_ACC);
+			//				l = ppp_incomplt(frame,&fh,&packet_hash.list[hash_pos],output,p);
+			//				//跳转到组包程序
+			//				pld_len = packet_restructure(&tar, l, log);
+			//				if(pld_len > 0){
+			//					t = ppp_complt(tar, pld_len, &fh, mhash, output);
+			//					ip_acc+=t;
+			//					fprintf(log, "packets:%d\n", t);
+			//				}else if(pld_len == 0)
+			//					fprintf(log, "packets:%d\n", 0);
+			//				if(l->pld_list == NULL)
+			//					listhdr_destroy(&packet_hash.list[hash_pos], l);
+			//				free(tar);
+			//				tar = NULL;
+			//			}
+		}
 		free(frame);
 		frame = NULL;
 	}while(1);
-	printf("signal analysis finished\n");
+
+	ip_acc+=hash_free(&packet_hash, output, log);
+	fclose(output);
+	fclose(log);
+	free(lifetime);
+	printf("\nframe analysis finished\nget %d ip packets\n", ip_acc);
 	pthread_exit((void *)2);
 }
 

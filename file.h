@@ -27,7 +27,9 @@ struct time_val{
 
 //packet header in pcap file
 struct pkthdr{
-	struct time_val tv;
+//	struct time_val tv;
+	_Int32 GMT;
+	_Int32 mtime;
 	_Int32 real_len;
 	_Int32 cap_len;
 };

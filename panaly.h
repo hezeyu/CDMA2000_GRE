@@ -5,6 +5,7 @@
 
 #define PDU_HASH_ACC	128
 #define MSID_HASH_ACC	4096
+#define RADIUS_HASH_ACC	4096
 #define HASH(i,j)	(i)&(j-1)
 
 #define GRE_FLAG	0x2f
@@ -133,9 +134,21 @@ struct msidhash{
 	struct TK_MSID *idlist[MSID_HASH_ACC];
 };
 
+struct RADIUS_MSG{
+	_Int32 mip;
+	_Int32 key;
+	u_char msisdn[14];
+	struct RADIUS_MSG *next;
+};
+
+struct radiushash{
+	struct RADIUS_MSG *rdslist[RADIUS_HASH_ACC];
+};
+
 struct get_msg{
 	struct frame_buf *fbuf;
 	struct msidhash *mhash;
+	struct radiushash *rhash;
 };
 
 struct get_msg * get_msg_make(struct frame_buf *);

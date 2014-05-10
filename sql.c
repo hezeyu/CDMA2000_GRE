@@ -10,7 +10,7 @@
 #define USER_NAME	"hezeyu"
 #define PASSWORD	"1"
 #define DB_NAME	"gre"
-#define TABLE_NAME	"ms_info"
+#define TABLE_NAME	"ms_info_test"
 
 MYSQL msql;
 
@@ -25,17 +25,17 @@ int sql_init(){
 		return SQL_FAILED;
 	}
 
-//	u_char query[SQL_LEN];
-//	sprintf(query, "DROP TABLE %s", TABLE_NAME);
-//	mysql_query(&msql, query);
-//	sprintf(query, "CREATE TABLE %s(MSISDN VARCHAR(13),MSID VARCHAR(15),"
-//			"MEID VARCHAR(14),IP INT UNSIGNED,GK INT UNSIGNED)", 
-//			TABLE_NAME);
-//	if(mysql_query(&msql, query)){
-//		fprintf(stderr, "create table error %d:%s\n",
-//				mysql_errno(&msql), mysql_error(&msql));
-//		return SQL_FAILED;
-//	}
+	u_char query[SQL_LEN];
+	sprintf(query, "DROP TABLE %s", TABLE_NAME);
+	mysql_query(&msql, query);
+	sprintf(query, "CREATE TABLE %s(MSISDN VARCHAR(13),MSID VARCHAR(15),"
+			"MEID VARCHAR(14),IP INT UNSIGNED,GK INT UNSIGNED)", 
+			TABLE_NAME);
+	if(mysql_query(&msql, query)){
+		fprintf(stderr, "create table error %d:%s\n",
+				mysql_errno(&msql), mysql_error(&msql));
+		return SQL_FAILED;
+	}
 
 	return 0;
 }
@@ -55,12 +55,12 @@ int sql_insert(u_char *msid, u_char *meid, _Int32 mip, _Int32 key){
 	return r;
 }
 
-int sql_update(u_char *msisdn, u_char *msid, _Int32 mip){
+int sql_update(u_char *msisdn, u_char *msid, _Int32 mip, _Int32 gk){
 	int r = 0;
 	u_char update[SQL_LEN];
 	sprintf(update,
-			"UPDATE %s SET MSISDN='%s' WHERE MSID='%s' AND IP=%lu",
-			TABLE_NAME, msisdn, msid, mip);
+			"UPDATE %s SET MSISDN='%s' WHERE MSID='%s' AND IP=%lu AND GK=%lu",
+			TABLE_NAME, msisdn, msid, mip, gk);
 	if(mysql_query(&msql, update)){
 		fprintf(stderr, "update error %d:%s\n",
 				mysql_errno(&msql), mysql_error(&msql));

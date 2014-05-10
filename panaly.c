@@ -23,10 +23,12 @@ int frame_escape(u_char *, int);
 void IPCP_handler(u_char *frame, struct framehdr *, struct msidhash *);
 
 void signalhdr_make(struct signalhdr *, u_char *);
-struct TK_MSID * tkmsid_make(u_char *, struct signalhdr *, int);
+struct TK_MSID * tkmsid_make(u_char *, int, struct signalhdr *, int);
 void msidhash_join(struct msidhash *, struct TK_MSID *);
 void msidhash_quit(struct msidhash *, struct TK_MSID *);
-void radius_handler(u_char *, FILE *, int);
+void radiushash_join(struct radiushash *, struct RADIUS_MSG *);
+void radiushash_quit(struct radiushash *, struct RADIUS_MSG *);
+struct RADIUS_MSG * radius_handler(u_char *, int , int);
 
 int ue_acc, msisdn_acc;
 
@@ -102,7 +104,7 @@ void IPCP_handler(u_char *frame, struct framehdr *fh, struct msidhash *mh){
 		int hash_pos = HASH(j, MSID_HASH_ACC);
 		struct TK_MSID *t = mh->idlist[hash_pos];
 		while(t!=NULL){
-			if(fh->gre->key==t->key){
+			if(fh->gre->key==t->key && fh->ip->src==t->dip && fh->ip->dst==t->sip){
 				u_char c[4]={frame[6],frame[7],frame[8],frame[9]};
 				_Int32 *i = (_Int32 *)c;
 				sql_insert(t->msid,t->meid,long_displace(*i),t->key);
@@ -314,37 +316,50 @@ void signalhdr_make(struct signalhdr *sh, u_char *frame){
 	sh->vlan = (struct virlanhdr *)(frame + p);
 	p+=sizeof(struct virlanhdr);
 	sh->ip = (struct ipv4hdr *)(frame + p);
+	sh->ip->total_len = short_displace(sh->ip->total_len);
 	sh->ip->src = long_displace(sh->ip->src);
 	sh->ip->dst = long_displace(sh->ip->dst);
 	p+=sizeof(struct ipv4hdr);
 	sh->udp = (struct udphdr *)(frame + p);
 }
 
-struct TK_MSID * tkmsid_make(u_char *frame, struct signalhdr *s, int p){
+struct TK_MSID * tkmsid_make(u_char *frame, int frame_len, struct signalhdr *s, int p){
 	struct TK_MSID *t;
 	t = (struct TK_MSID *)malloc(sizeof(struct TK_MSID));
-	int i,j=0;
 	t->sip = s->ip->src;
 	t->dip = s->ip->dst;
 	_Int32 *k = (_Int32 *)(frame+4);
 	t->key = long_displace(*k);
+	u_char c[4] = {0x00,0x00,0x00,0x00};
+	_Int32 *offset = (_Int32 *)c;
+	int i,j=0,u=0;
+
 	t->msid[j] = BCD(frame[15]>>4);
-	for(i=16;i<23;i++){
+	for(i=16;j<14;i++){
 		t->msid[++j] = BCD(frame[i]);
 		t->msid[++j] = BCD(frame[i]>>4);
 	}
 	t->msid[++j] = '\0';
-	switch(frame[44]){
-		case A11_ACTIVE_START:
-			for(i=0;i<14;i++)
-				t->meid[i] = frame[77+i];
-			t->meid[i] = '\0';
-			break;
-		case A11_ACTIVE_STOP:
-			break;
-		default:
-			break;
-	}
+	c[0] = frame[u+1];
+	u = u+(*offset)+2;
+
+	c[0] = frame[u+3]; c[1] = frame[u+2];
+	int y = u+(*offset)+4;
+	u+=10;
+	do{
+		switch(frame[u+6]){
+			case 0x74:
+				for(i=0;i<14;i++)
+					t->meid[i] = frame[u+i+8];
+				t->meid[i] = '\0';
+				break;
+			default:
+				break;
+		}
+		c[0] = frame[u+1]; c[1] = 0x00;
+		u+=(*offset);
+	}while(u < y);
+
 	t->next = NULL;
 	t->p = p;
 	return t;
@@ -384,40 +399,95 @@ void msidhash_quit(struct msidhash *mhash, struct TK_MSID *t){
 	free(tmp1);
 }
 
-void radius_handler(u_char *frame, FILE *log, int p){
-	if(frame[46]==RADIUS_ACCT_REQ && frame[106]==ACCT_STATUS_START){
-		u_char c[4] = {0x00,0x00,0x00,0x00};
-		_Int32 *mip = (_Int32 *)c, *offset = (_Int32 *)c;
-		u_char msid[16];
-		u_char msisdn[14];
-		int t, u;
-		u=(frame[119]==0x34)?119:124;
-		for(t=0;t<15;t++)
-			msid[t] = frame[u+t];
-		msid[t] = '\0';
-
-		u+=58;
-		_Int16 *i = (_Int16 *)(frame+u);
-		while(*i != 0xce51){
-			c[0] = frame[u-3];
-			u+=(*offset);
-			i = (_Int16 *)(frame+u);
-		}
-		c[0] = frame[u+3];
-		*offset-=2;
-		if((*offset) > 13)
+void radiushash_join(struct radiushash *rhash, struct RADIUS_MSG *r){
+	int hash_pos = HASH(r->mip+r->key, RADIUS_HASH_ACC);
+	struct RADIUS_MSG *tmp = rhash->rdslist[hash_pos];
+	while(tmp!=NULL){
+		if(r->key==tmp->key)
 			return;
-		u+=4;
-		for(t=0;t<(*offset);t++)
-			msisdn[t] = frame[u+t];
-		msisdn[t] = '\0';
-		c[0]=frame[100]; c[1]=frame[99]; c[2]=frame[98]; c[3]=frame[97];
-		sql_update(msisdn, msid, *mip);
-		msisdn_acc++;
-		printf("\rMSISDN be found : %d", ++msisdn_acc);
-		fflush(stdout);
-//		fprintf(log,"%d\t%s\t%s\t%lu\n",p,msisdn,msid,*mip);
+		tmp = tmp->next;
 	}
+	r->next = rhash->rdslist[hash_pos];
+	rhash->rdslist[hash_pos] = r;
+}
+
+void radiushash_quit(struct radiushash *rhash, struct RADIUS_MSG *r){
+	int hash_pos = HASH(r->mip+r->key, RADIUS_HASH_ACC);
+	struct RADIUS_MSG *tmp1 = rhash->rdslist[hash_pos];
+	struct RADIUS_MSG *tmp2 = tmp1;
+	if(tmp1 == NULL)
+		return;
+
+	if(r->key==tmp1->key){
+		rhash->rdslist[hash_pos] = tmp1->next;
+		free(tmp1);
+		return;
+	}
+	while(r->key!=tmp1->key){
+		tmp2 = tmp1;
+		tmp1 = tmp1->next;
+		if(tmp1 == NULL)
+			return;
+	}
+	tmp2->next = tmp1->next;
+	free(tmp1);
+}
+
+
+struct RADIUS_MSG * radius_handler(u_char *frame, int frame_len, int p){
+	struct RADIUS_MSG *r = NULL;
+	u_char c[4] = {0x00,0x00,0x00,0x00};
+	_Int32 *offset = (_Int32 *)c;
+	int u = 0;
+	while(frame[u] != 0x28){
+		c[0] = frame[u+1];
+		u+=(*offset);
+	}
+	u+=5;
+	if(frame[u]==ACCT_STATUS_START){
+		r = (struct RADIUS_MSG *)malloc(sizeof(struct RADIUS_MSG));
+		u++;
+		int t;
+		_Int16 *i = (_Int16 *)(frame+u+4);
+		_Int32 *gk = NULL, *mip = (_Int32 *)(frame+u-10);
+//		u_char msid[16];
+//		u_char msisdn[14];
+//		u_char mip[4]={frame[u-7],frame[u-8],frame[u-9],frame[u-10]};
+		do{
+			if(frame[u]==0x1f){
+		//		for(t=0;t<15;t++)
+		//			msid[t] = frame[u+t+2];
+		//		msid[t] = '\0';
+			}else if(frame[u]==0x1a){
+				if(*i==0x9f15){
+					switch(frame[u+6]){
+						case 0x29:
+							gk = (_Int32 *)(frame+u+8);
+							break;
+						default:
+							break;
+					}
+				}else if(*i==0xce51){
+					c[0] = frame[u+7];
+					*offset-=2;
+					for(t=0;t<13;t++)
+						r->msisdn[t] = frame[u+t+8];
+					t=((*offset)>=13)?13:11;
+					r->msisdn[t] = '\0';
+					break;
+				}
+			}
+			c[0] = frame[u+1];
+			u+=(*offset);
+			i = (_Int16 *)(frame+u+4);
+		}while(u < frame_len);
+		r->mip = long_displace(*mip);
+		r->key = long_displace(*gk);
+		r->next = NULL;
+//		_Int32 *j = (_Int32 *)mip;
+//		sql_update(msisdn, msid, long_displace(*mip), long_displace(*gk));
+	}
+	return r;
 }
 
 struct get_msg * get_msg_make(struct frame_buf *fbuf){
@@ -425,36 +495,32 @@ struct get_msg * get_msg_make(struct frame_buf *fbuf){
 	g = (struct get_msg *)malloc(sizeof(struct get_msg));
 	g->fbuf = fbuf;
 	g->mhash = (struct msidhash *)malloc(sizeof(struct msidhash));
+	g->rhash = (struct radiushash *)malloc(sizeof(struct radiushash));
 	int i;
 	for(i=0;i<MSID_HASH_ACC;i++)
 		g->mhash->idlist[i] = NULL;
+	for(i=0;i<RADIUS_HASH_ACC;i++)
+		g->rhash->rdslist[i] = NULL;
 	return g;
 }
 
 void get_msg_free(struct get_msg **g){
 	int i,j;
 	struct TK_MSID *t;
+	struct RADIUS_MSG *r;
 	for(i=0;i<MSID_HASH_ACC;i++){
-		//					j=0;
 		while((*g)->mhash->idlist[i]!=NULL){
-			//						j++;
-			//			t = (*g)->mhash->idlist[i];
-			//			printf("%.6d:\t",t->p);
-			//			for(j=0;j<4;j++)
-			//				printf("%d.", t->sip[j]);
-			//			printf("\t");
-			//			for(j=0;j<4;j++)
-			//				printf("%d.", t->dip[j]);
-			//			printf("\t%.4x\t", t->key);
-			//			for(j=0;j<8;j++)
-			//				printf("%.2x", t->msid[j]);
-			//			printf("\n");
-
 			t = (*g)->mhash->idlist[i]->next;
 			free((*g)->mhash->idlist[i]);
 			(*g)->mhash->idlist[i] = t;
 		}
-		//					printf("%d in hash %d\n", j, i);
+	}
+	for(i=0;i<MSID_HASH_ACC;i++){
+		while((*g)->rhash->rdslist[i]!=NULL){
+			r = (*g)->rhash->rdslist[i]->next;
+			free((*g)->rhash->rdslist[i]);
+			(*g)->rhash->rdslist[i] = r;
+		}
 	}
 	free(*g);
 }
@@ -465,6 +531,7 @@ void *frame_analy(void *msg){
 	struct frame_buf *fbuf = ((struct get_msg *)msg)->fbuf;
 	struct msidhash *mhash = ((struct get_msg *)msg)->mhash;
 	struct TK_MSID *tkmsid;
+	struct RADIUS_MSG *rdsmsg;
 	struct listhdr *l=NULL;
 	u_char *frame=NULL, *tar=NULL;
 	FILE *output = fopen("./packet", "wb");
@@ -493,45 +560,55 @@ void *frame_analy(void *msg){
 		pthread_cond_signal(&(fbuf->empty));
 		pthread_mutex_unlock(&(fbuf->mutex));
 
-//		printf("\rframe %d", p);
-//		fflush(stdout);
-//		if(p == 1476234)
-//			printf("hello\n");
+		//		printf("\rframe %d", p);
+		//		fflush(stdout);
 		if(frame[27] == UDP_FLAG){
 			signalhdr_make(&sh, frame);
 			//A11信令处理
-			if(sh.udp->src_port==ACCESSNW&&sh.udp->dst_port==ACCESSNW){
-//				switch(frame[SGNLHDR_LEN]){
-//					case REG_REQUEST:
-//						lifetime[0] = frame[49];
-//						lifetime[1] = frame[48];
-//						if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
-//							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),&sh,p);
-//							msidhash_join(mhash, tkmsid);
-//						}
-//						else if(*lifetime==0){
-//							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),&sh,p);
-//							msidhash_quit(mhash, tkmsid);
-//							free(tkmsid);
-//							tkmsid = NULL;
-//						}
-//						break;
-//					default:
-//						break;
-//				}
+			if(sh.udp->src_port==ACCESSNW && sh.udp->dst_port==ACCESSNW){
+				switch(frame[SGNLHDR_LEN]){
+					case REG_REQUEST:
+						lifetime[0] = frame[49];
+						lifetime[1] = frame[48];
+						t = sh.ip->total_len-28-24;
+						if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
+							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),t,&sh,p);
+							msidhash_join(mhash, tkmsid);
+						}
+						else if(*lifetime==0){
+							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),t,&sh,p);
+							msidhash_quit(mhash, tkmsid);
+							free(tkmsid);
+							tkmsid = NULL;
+						}
+						break;
+					default:
+						break;
+				}
 			}
 			//RADIUS数据处理
-			else
-				radius_handler(frame, log, p);
+			else{
+				t = sh.ip->total_len-28-20;
+				switch(frame[SGNLHDR_LEN]){
+					case RADIUS_ACCT_REQ:
+						if(frame[106] == ACCT_STATUS_START){
+							rdsmsg = radius_handler((frame+SGNLHDR_LEN+20), t, p);
+						}else if(frame[106] == ACCT_STATUS_STOP){
+						}
+						break;
+					default:
+						break;
+				}
+			}
 		}
 		else if(frame[27] == GRE_FLAG){
 			//用户数据处理
-//			framehdr_make(&fh, frame);
-//			t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
-//			if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
-//				//封装完整
-//				ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
-//						t-FRAME_HEADER_LEN,&fh,mhash,output);
+			framehdr_make(&fh, frame);
+			t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
+			if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
+				//封装完整
+				ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
+						t-FRAME_HEADER_LEN,&fh,mhash,output);
 			//			else{
 			//				//封装不完整
 			//				hash_pos = HASH(fh.gre->key, PDU_HASH_ACC);

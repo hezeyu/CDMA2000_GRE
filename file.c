@@ -72,7 +72,6 @@ int pkthdr_read(struct buffer *mbuf, struct pkthdr *mpkthdr, FILE *mfile){
 		if(mpkthdr->real_len > 2000 || mpkthdr->real_len < 0)
 			printf("\n2\t%lu\n",mpkthdr->real_len);
 	}
-	//输出pkthdr信息
 
 	return i;
 }

@@ -40,13 +40,13 @@ int sql_init(){
 	return 0;
 }
 
-int sql_insert(u_char *msid, u_char *meid, _Int32 mip, _Int32 key){
+int sql_insert(u_char *msisdn, u_char *msid, u_char *meid, _Int32 mip, _Int32 key){
 	int r = 0;
 	u_char insert[SQL_LEN];
 	sprintf(insert,
-			"INSERT INTO %s(MSID,MEID,IP,GK) VALUES"
-			"('%s','%s',%lu,%lu)",
-			TABLE_NAME, msid, meid, mip, key);
+			"INSERT INTO %s(MSISDN,MSID,MEID,IP,GK) VALUES"
+			"('%s','%s','%s',%lu,%lu)",
+			TABLE_NAME, msisdn, msid, meid, mip, key);
 	if(mysql_query(&msql, insert)){
 		fprintf(stderr, "insert error %d:%s\n",
 				mysql_errno(&msql), mysql_error(&msql));

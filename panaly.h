@@ -101,6 +101,7 @@ struct listhash{
 #define IPCP_CON_REJECT	0x04
 #define RADIUS_ACCT_REQ	0x04
 #define ACCT_STATUS_START	0x01
+#define ACCT_STATUS_STOP	0x02
 #define ACCT_STATUS_UPDATE	0x03
 #define BCD(x)	(x)&0x0f|0x30
 

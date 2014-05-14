@@ -3,10 +3,8 @@
 #include "panaly.h"
 #include "sql.c"
 
-int ppp_complt(u_char *, int, struct framehdr *, 
-		struct msidhash *, FILE *);
-struct listhdr * ppp_incomplt(u_char *, struct framehdr *, 
-		struct listhdr **, FILE *, int);
+int ppp_complt(u_char *, int, struct framehdr *, struct msidhash *, struct radiushash *, FILE *);
+struct listhdr * ppp_incomplt(u_char *, struct framehdr *, struct listhdr **, FILE *, int);
 int flag_find(u_char *, int, int);
 void payload_push(struct listhdr *, struct payload *);
 void payload_pop(struct listhdr *);
@@ -20,7 +18,7 @@ void framehdr_make(struct framehdr *, u_char *);
 _Int16 short_displace(_Int16);
 _Int32 long_displace(_Int32);
 int frame_escape(u_char *, int);
-void IPCP_handler(u_char *frame, struct framehdr *, struct msidhash *);
+void IPCP_handler(u_char *frame, struct framehdr *, struct msidhash *, struct radiushash *);
 
 void signalhdr_make(struct signalhdr *, u_char *);
 struct TK_MSID * tkmsid_make(u_char *, int, struct signalhdr *, int);
@@ -28,12 +26,12 @@ void msidhash_join(struct msidhash *, struct TK_MSID *);
 void msidhash_quit(struct msidhash *, struct TK_MSID *);
 void radiushash_join(struct radiushash *, struct RADIUS_MSG *);
 void radiushash_quit(struct radiushash *, struct RADIUS_MSG *);
-struct RADIUS_MSG * radius_handler(u_char *, int , int);
+struct RADIUS_MSG * rdsmsg_make(u_char *, int , int);
 
 int ue_acc, msisdn_acc;
 
 int ppp_complt(u_char *frame, int frame_size, struct framehdr *fh, 
-		struct  msidhash *mh, FILE *output){
+		struct  msidhash *mh, struct radiushash *rh, FILE *output){
 	//返回获得的IP数据包个数
 	int ipnum = 0, start = 0, end = 0;
 	_Int16 *protocol = 0, *size = 0;
@@ -58,7 +56,7 @@ int ppp_complt(u_char *frame, int frame_size, struct framehdr *fh,
 				//					break;
 				case IPCP:
 					start+=4;
-					IPCP_handler((frame+start), fh, mh);
+					IPCP_handler((frame+start), fh, mh, rh);
 					break;
 				default:
 					break;
@@ -98,19 +96,25 @@ struct listhdr * ppp_incomplt(u_char *frame, struct framehdr *fh,
 	return l;
 }
 
-void IPCP_handler(u_char *frame, struct framehdr *fh, struct msidhash *mh){
+void IPCP_handler(u_char *frame, struct framehdr *fh, struct msidhash *mh, struct radiushash *rh){
 	if(frame[0]==IPCP_CON_NAK){
-		_Int32 j = fh->ip->src+fh->ip->dst+fh->gre->key;
-		int hash_pos = HASH(j, MSID_HASH_ACC);
+		u_char c[4]={frame[9],frame[8],frame[7],frame[6]};
+		_Int32 *i = (_Int32 *)c;
+		int hash_pos = HASH(fh->ip->src+fh->ip->dst+fh->gre->key, MSID_HASH_ACC);
 		struct TK_MSID *t = mh->idlist[hash_pos];
+		hash_pos = HASH(*i+fh->gre->key, RADIUS_HASH_ACC);
+		struct RADIUS_MSG *r = rh->rdslist[hash_pos];
 		while(t!=NULL){
 			if(fh->gre->key==t->key && fh->ip->src==t->dip && fh->ip->dst==t->sip){
-				u_char c[4]={frame[6],frame[7],frame[8],frame[9]};
-				_Int32 *i = (_Int32 *)c;
-				sql_insert(t->msid,t->meid,long_displace(*i),t->key);
-				printf("\rthe number of UE be found : %d", ++ue_acc);
-				fflush(stdout);
-				break;
+				while(r!=NULL){
+					if(fh->gre->key==r->key && *i==r->mip){
+						sql_insert(r->msisdn,t->msid,t->meid,*i,t->key);
+						printf("\rthe number of UE be found : %d", ++ue_acc);
+						fflush(stdout);
+						return;
+					}
+					r = r->next;
+				}
 			}
 			t = t->next;
 		}
@@ -243,7 +247,7 @@ int hash_free(struct listhash *hash, FILE *output, FILE *log){
 			n = 0;
 			fprintf(log, "in hash %d:",i);
 			if((k=payload_splice(&str, l, NULL, log)) > 0)
-				n = ppp_complt(str, k, NULL, NULL, output);
+				n = ppp_complt(str, k, NULL, NULL, NULL, output);
 			m+=n;
 			fprintf(log, "packets:%d\n",n);
 			free(str);
@@ -434,59 +438,43 @@ void radiushash_quit(struct radiushash *rhash, struct RADIUS_MSG *r){
 }
 
 
-struct RADIUS_MSG * radius_handler(u_char *frame, int frame_len, int p){
-	struct RADIUS_MSG *r = NULL;
+struct RADIUS_MSG * rdsmsg_make(u_char *frame, int frame_len, int p){
+	struct RADIUS_MSG *r = (struct RADIUS_MSG *)malloc(sizeof(struct RADIUS_MSG));
 	u_char c[4] = {0x00,0x00,0x00,0x00};
 	_Int32 *offset = (_Int32 *)c;
-	int u = 0;
-	while(frame[u] != 0x28){
+	int u = 0, t;
+	_Int16 *i = (_Int16 *)(frame+u+4);
+	_Int32 *gk = NULL, *mip = NULL;
+	do{
+		if(frame[u]==0x08){
+			mip = (_Int32 *)(frame+u+2);
+		}else if(frame[u]==0x1a){
+			if(*i==0x9f15){
+				switch(frame[u+6]){
+					case 0x29:
+						gk = (_Int32 *)(frame+u+8);
+						break;
+					default:
+						break;
+				}
+			}else if(*i==0xce51){
+				c[0] = frame[u+7];
+				*offset-=2;
+				for(t=0;t<13;t++)
+					r->msisdn[t] = frame[u+t+8];
+				t=((*offset)>=13)?13:11;
+				r->msisdn[t] = '\0';
+				break;
+			}
+		}
 		c[0] = frame[u+1];
 		u+=(*offset);
-	}
-	u+=5;
-	if(frame[u]==ACCT_STATUS_START){
-		r = (struct RADIUS_MSG *)malloc(sizeof(struct RADIUS_MSG));
-		u++;
-		int t;
-		_Int16 *i = (_Int16 *)(frame+u+4);
-		_Int32 *gk = NULL, *mip = (_Int32 *)(frame+u-10);
-//		u_char msid[16];
-//		u_char msisdn[14];
-//		u_char mip[4]={frame[u-7],frame[u-8],frame[u-9],frame[u-10]};
-		do{
-			if(frame[u]==0x1f){
-		//		for(t=0;t<15;t++)
-		//			msid[t] = frame[u+t+2];
-		//		msid[t] = '\0';
-			}else if(frame[u]==0x1a){
-				if(*i==0x9f15){
-					switch(frame[u+6]){
-						case 0x29:
-							gk = (_Int32 *)(frame+u+8);
-							break;
-						default:
-							break;
-					}
-				}else if(*i==0xce51){
-					c[0] = frame[u+7];
-					*offset-=2;
-					for(t=0;t<13;t++)
-						r->msisdn[t] = frame[u+t+8];
-					t=((*offset)>=13)?13:11;
-					r->msisdn[t] = '\0';
-					break;
-				}
-			}
-			c[0] = frame[u+1];
-			u+=(*offset);
-			i = (_Int16 *)(frame+u+4);
-		}while(u < frame_len);
-		r->mip = long_displace(*mip);
-		r->key = long_displace(*gk);
-		r->next = NULL;
-//		_Int32 *j = (_Int32 *)mip;
-//		sql_update(msisdn, msid, long_displace(*mip), long_displace(*gk));
-	}
+		i = (_Int16 *)(frame+u+4);
+	}while(u < frame_len);
+	r->mip = long_displace(*mip);
+	r->key = long_displace(*gk);
+	r->next = NULL;
+	//		sql_update(msisdn, msid, long_displace(*mip), long_displace(*gk));
 	return r;
 }
 
@@ -527,9 +515,11 @@ void get_msg_free(struct get_msg **g){
 
 void *frame_analy(void *msg){
 	ue_acc = 0;
-	printf("frame analyzing...\n");
+	printf("frame analyzing...\nthe number of UE be found : %d",ue_acc);
+	fflush(stdout);
 	struct frame_buf *fbuf = ((struct get_msg *)msg)->fbuf;
 	struct msidhash *mhash = ((struct get_msg *)msg)->mhash;
+	struct radiushash *rhash = ((struct get_msg *)msg)->rhash;
 	struct TK_MSID *tkmsid;
 	struct RADIUS_MSG *rdsmsg;
 	struct listhdr *l=NULL;
@@ -570,13 +560,12 @@ void *frame_analy(void *msg){
 					case REG_REQUEST:
 						lifetime[0] = frame[49];
 						lifetime[1] = frame[48];
-						t = sh.ip->total_len-28-24;
 						if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
-							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),t,&sh,p);
+							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
 							msidhash_join(mhash, tkmsid);
 						}
 						else if(*lifetime==0){
-							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),t,&sh,p);
+							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
 							msidhash_quit(mhash, tkmsid);
 							free(tkmsid);
 							tkmsid = NULL;
@@ -588,12 +577,16 @@ void *frame_analy(void *msg){
 			}
 			//RADIUS数据处理
 			else{
-				t = sh.ip->total_len-28-20;
 				switch(frame[SGNLHDR_LEN]){
 					case RADIUS_ACCT_REQ:
 						if(frame[106] == ACCT_STATUS_START){
-							rdsmsg = radius_handler((frame+SGNLHDR_LEN+20), t, p);
+							rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
+							radiushash_join(rhash, rdsmsg);
 						}else if(frame[106] == ACCT_STATUS_STOP){
+							rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
+							radiushash_quit(rhash, rdsmsg);
+							free(rdsmsg);
+							rdsmsg = NULL;
 						}
 						break;
 					default:
@@ -608,7 +601,7 @@ void *frame_analy(void *msg){
 			if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
 				//封装完整
 				ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
-						t-FRAME_HEADER_LEN,&fh,mhash,output);
+						t-FRAME_HEADER_LEN,&fh,mhash,rhash,output);
 			//			else{
 			//				//封装不完整
 			//				hash_pos = HASH(fh.gre->key, PDU_HASH_ACC);
@@ -616,7 +609,7 @@ void *frame_analy(void *msg){
 			//				//跳转到组包程序
 			//				pld_len = packet_restructure(&tar, l, log);
 			//				if(pld_len > 0){
-			//					t = ppp_complt(tar, pld_len, &fh, mhash, output);
+			//					t = ppp_complt(tar, pld_len, &fh, mhash, rhash, output);
 			//					ip_acc+=t;
 			//					fprintf(log, "packets:%d\n", t);
 			//				}else if(pld_len == 0)

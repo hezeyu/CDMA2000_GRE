@@ -1,15 +1,17 @@
-objects = main.o file.o panaly.o
+objects = main.o file.o panaly.o capture.o
 CFLAGS = -g -c -D_FILE_OFFSET_BITS=64
 
 edit:$(objects)
-	gcc $(objects) -o main -lpthread -lmysqlclient
+	gcc $(objects) -lpcap -lmysqlclient -o main -lpthread
 
-main.o:file.h panaly.h
+main.o:file.h panaly.h capture.h
 	gcc $(CFLAGS) main.c
 file.o:structure.h file.h
 	gcc $(CFLAGS) file.c
 panaly.o:structure.h panaly.h sql.c
 	gcc $(CFLAGS) panaly.c
+capture.o:structure.h capture.h
+	gcc $(CFLAGS) capture.c
 
 .PHONY:clean
 clean:

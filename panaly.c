@@ -544,7 +544,7 @@ void *frame_analy(void *msg){
 			pthread_cond_wait(&(fbuf->full), &(fbuf->mutex));
 		}
 		p++;
-		frame = fbuf->mframe[fbuf->front];
+		frame = (u_char *)fbuf->mframe[fbuf->front];
 		fbuf->mframe[fbuf->front] = NULL;
 		fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
 		pthread_cond_signal(&(fbuf->empty));

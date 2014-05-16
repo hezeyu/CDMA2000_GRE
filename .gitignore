@@ -2,3 +2,7 @@ core
 packet
 log
 out
+*.o
+main
+run
+tags

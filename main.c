@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include "panaly.h"
 #include "file.h"
+#include "capture.h"
 
 void err_exit(struct put_msg **p, struct get_msg **g, FILE *f){
 	put_msg_free(p);
@@ -22,38 +23,32 @@ int pthread_wait(pthread_t *thread1, pthread_t *thread2){
 	return err;
 }
 
-int main(int argc, char *argv[]){
-	if(argc < 2){
-		fprintf(stderr,"%s\n","No file path!");
-		exit(1);
-	}
-	struct timeval tv1, tv2;
+int online_analy(){
+	return 0;
+}
+
+int offline_analy(char *path){
 	FILE *mfile;
 	struct put_msg *pmsg;
 	struct get_msg *gmsg;
 	pthread_t put, get;
 	int err = 0;
 	long long file_len;
-
-	gettimeofday(&tv1, NULL);
-
-	mfile = fopen(argv[1], "rb");
+	
+	mfile = fopen(path, "rb");
 	if(mfile == 0){
 		fprintf(stderr,"%s\n","No such file!");
-		exit(1);
+		return 1;
 	}
 	//获得文件总长度
 	struct stat mstat;
-	if(stat(argv[1],&mstat)<0){
+	if(stat(path,&mstat)<0){
 		fprintf(stderr,"%s\n","stat error!");
 		fclose(mfile);
-		exit(1);
+		return 1;
 	}
 	file_len = mstat.st_size;
-//	fseek(mfile,0,SEEK_END);
-//	file_len = ftell(mfile);
 	printf("%lld\n", file_len);
-//	fseek(mfile,0,SEEK_SET);
 
 	pmsg = put_msg_make(mfile, file_len);
 	gmsg = get_msg_make(pmsg->fbuf);
@@ -61,25 +56,40 @@ int main(int argc, char *argv[]){
 	if(err != 0){
 		fprintf(stderr, "can't start frame_buf_put:%s\n", strerror(err));
 		err_exit(&pmsg, &gmsg, mfile);
-		exit(3);
+		return 2;
 	}
 	
 	err = pthread_create(&get, NULL, &frame_analy, (void *)gmsg);
 	if(err != 0){
 		fprintf(stderr, "can't start signal_analy:%s\n", strerror(err));
 		err_exit(&pmsg, &gmsg, mfile);
-		exit(3);
+		return 2;
 	}
 
 	if((err = pthread_wait(&put, &get)) != 0){
 		fprintf(stderr, "pthread_wait failed\n");
 		err_exit(&pmsg, &gmsg, mfile);
-		exit(3);
+		return 2;
 	}
 
 	put_msg_free(&pmsg);
 	get_msg_free(&gmsg);
 	fclose(mfile);
+
+	return 0;
+}
+
+int main(int argc, char *argv[]){
+	struct timeval tv1, tv2;
+	gettimeofday(&tv1, NULL);
+
+	if(argc < 2){
+		if(online_analy() > 0)
+			fprintf(stderr,"ERROR EXIT!\n");
+	}else{
+		if(offline_analy(argv[1]) > 0)
+			fprintf(stderr,"ERROR EXIT!\n");
+	}
 
 	gettimeofday(&tv2, NULL);
 	long timeuse=1000000*(tv2.tv_sec-tv1.tv_sec)+(tv2.tv_usec-tv1.tv_usec);

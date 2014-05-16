@@ -107,9 +107,6 @@ void *frame_buf_put(void *msg){
 	rd_already+=mbuf->forward;
 
 	struct pkthdr mpkthdr;
-	int p=0;
-
-	//创建读文件线程
 
 	do{
 		pthread_mutex_lock(&(fbuf->mutex));
@@ -123,7 +120,6 @@ void *frame_buf_put(void *msg){
 		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
 			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
 
-		p++;
 		rd_already += pkthdr_read(mbuf, &mpkthdr, mfile);
 
 		if((file_len-rd_already)<mpkthdr.real_len){

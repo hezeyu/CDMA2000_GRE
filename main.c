@@ -8,7 +8,13 @@
 #include "file.h"
 #include "capture.h"
 
-void err_exit(struct put_msg **p, struct get_msg **g, FILE *f){
+void online_exit(struct cap_msg **c, struct get_msg **g, pcap_t **adhandle){
+	cap_msg_free(c);
+	get_msg_free(g);
+	free(*adhandle);
+}
+
+void offline_exit(struct put_msg **p, struct get_msg **g, FILE *f){
 	put_msg_free(p);
 	get_msg_free(g);
 	fclose(f);
@@ -24,6 +30,39 @@ int pthread_wait(pthread_t *thread1, pthread_t *thread2){
 }
 
 int online_analy(){
+	struct cap_msg *cmsg;
+	struct get_msg *gmsg;
+	pthread_t cap, get;
+	int err = 0;
+	pcap_t *adhandle = open_eth();
+
+	if(!adhandle)
+		return 3;
+	cmsg = cap_msg_make(adhandle);
+	gmsg = get_msg_make(cmsg->fbuf);
+
+	err = pthread_create(&cap, NULL, frame_capture, (void *)cmsg);
+	if(err != 0){
+		fprintf(stderr, "can't start frame_capture:%s\n", strerror(err));
+		online_exit(&cmsg, &gmsg, &adhandle);
+		return 2;
+	}
+	
+	err = pthread_create(&get, NULL, frame_analy, (void *)gmsg);
+	if(err != 0){
+		fprintf(stderr, "can't start frame_analy:%s\n", strerror(err));
+		online_exit(&cmsg, &gmsg, &adhandle);
+		return 2;
+	}
+
+	if((err = pthread_wait(&cap, &get)) != 0){
+		fprintf(stderr, "pthread_wait failed\n");
+		online_exit(&cmsg, &gmsg, &adhandle);
+		return 2;
+	}
+
+	online_exit(&cmsg, &gmsg, &adhandle);
+
 	return 0;
 }
 
@@ -52,29 +91,27 @@ int offline_analy(char *path){
 
 	pmsg = put_msg_make(mfile, file_len);
 	gmsg = get_msg_make(pmsg->fbuf);
-	err = pthread_create(&put, NULL, &frame_buf_put, (void *)pmsg);
+	err = pthread_create(&put, NULL, frame_buf_put, (void *)pmsg);
 	if(err != 0){
 		fprintf(stderr, "can't start frame_buf_put:%s\n", strerror(err));
-		err_exit(&pmsg, &gmsg, mfile);
+		offline_exit(&pmsg, &gmsg, mfile);
 		return 2;
 	}
 	
-	err = pthread_create(&get, NULL, &frame_analy, (void *)gmsg);
+	err = pthread_create(&get, NULL, frame_analy, (void *)gmsg);
 	if(err != 0){
 		fprintf(stderr, "can't start signal_analy:%s\n", strerror(err));
-		err_exit(&pmsg, &gmsg, mfile);
+		offline_exit(&pmsg, &gmsg, mfile);
 		return 2;
 	}
 
 	if((err = pthread_wait(&put, &get)) != 0){
 		fprintf(stderr, "pthread_wait failed\n");
-		err_exit(&pmsg, &gmsg, mfile);
+		offline_exit(&pmsg, &gmsg, mfile);
 		return 2;
 	}
 
-	put_msg_free(&pmsg);
-	get_msg_free(&gmsg);
-	fclose(mfile);
+	offline_exit(&pmsg, &gmsg, mfile);
 
 	return 0;
 }

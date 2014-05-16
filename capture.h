@@ -9,9 +9,10 @@ struct cap_msg{
 	pcap_t *adhandle;
 };
 
-struct cap_msg *cap_msg_make(pcap_t *);
-pcap_t *open_eth();
-void * frame_capture(void *);
+struct cap_msg * cap_msg_make(pcap_t *);
+void cap_msg_free(struct cap_msg **);
+pcap_t * open_eth();
+void *frame_capture(void *);
 
 #endif
 

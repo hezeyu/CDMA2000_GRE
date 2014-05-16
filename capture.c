@@ -2,14 +2,19 @@
 #include <stdlib.h>
 #include "capture.h"
 
-struct cap_msg *cap_msg_make(pcap_t *adhandle){
+struct cap_msg * cap_msg_make(pcap_t *adhandle){
 	struct cap_msg * p = (struct cap_msg *)malloc(sizeof(struct cap_msg));
 	p->fbuf = frame_buf_init();
 	p->adhandle = adhandle;
 	return p;
 }
 
-pcap_t *open_eth(){
+void cap_msg_free(struct cap_msg **c){
+	free((*c)->fbuf);
+	free(*c);
+}
+
+pcap_t * open_eth(){
 	pcap_if_t *alldevs, *d;
 	pcap_t *adhandle;
 	int i=0, inum;
@@ -50,7 +55,7 @@ pcap_t *open_eth(){
 	return adhandle;
 }
 
-void * frame_capture(void *msg){
+void *frame_capture(void *msg){
 	struct frame_buf *fbuf = ((struct cap_msg *)msg)->fbuf;
 	pcap_t *adhandle = ((struct cap_msg *)msg)->adhandle;
 	struct pcap_pkthdr *header;

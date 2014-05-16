@@ -155,7 +155,6 @@ struct get_msg{
 struct get_msg * get_msg_make(struct frame_buf *);
 void get_msg_free(struct get_msg **);
 void *pdu_get(void *);
-void *signal_analy(void *);
 void *frame_analy(void *);
 
 #endif

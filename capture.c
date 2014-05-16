@@ -25,7 +25,7 @@ pcap_t * open_eth(){
 		return NULL;
 	}
 
-	for(d=alldevs;;d=d->next){
+	for(d=alldevs;d;d=d->next){
 		printf("%d, %s",++i,d->name);
 		if(d->description)
 			printf("(%s)\n",d->description);
@@ -59,12 +59,14 @@ void *frame_capture(void *msg){
 	struct frame_buf *fbuf = ((struct cap_msg *)msg)->fbuf;
 	pcap_t *adhandle = ((struct cap_msg *)msg)->adhandle;
 	struct pcap_pkthdr *header;
+	int p=0;
 	do{
 		pthread_mutex_lock(&(fbuf->mutex));
 		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
 			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
 
 		if(pcap_next_ex(adhandle,&header,&(fbuf->mframe[fbuf->rear]))>0){
+			printf("\rframe captured:%d", ++p);
 			fbuf->frame_len[fbuf->rear] = header->len;
 			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
 		}

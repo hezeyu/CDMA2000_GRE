@@ -553,55 +553,55 @@ void *frame_analy(void *msg){
 		//		printf("\rframe %d", p);
 		//		fflush(stdout);
 		if(frame[27] == UDP_FLAG){
-			signalhdr_make(&sh, frame);
-			//A11信令处理
-			if(sh.udp->src_port==ACCESSNW && sh.udp->dst_port==ACCESSNW){
-				switch(frame[SGNLHDR_LEN]){
-					case REG_REQUEST:
-						lifetime[0] = frame[49];
-						lifetime[1] = frame[48];
-						if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
-							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
-							msidhash_join(mhash, tkmsid);
-						}
-						else if(*lifetime==0){
-							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
-							msidhash_quit(mhash, tkmsid);
-							free(tkmsid);
-							tkmsid = NULL;
-						}
-						break;
-					default:
-						break;
-				}
-			}
-			//RADIUS数据处理
-			else{
-				switch(frame[SGNLHDR_LEN]){
-					case RADIUS_ACCT_REQ:
-						if(frame[106] == ACCT_STATUS_START){
-							rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
-							radiushash_join(rhash, rdsmsg);
-						}else if(frame[106] == ACCT_STATUS_STOP){
-							rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
-							radiushash_quit(rhash, rdsmsg);
-							free(rdsmsg);
-							rdsmsg = NULL;
-						}
-						break;
-					default:
-						break;
-				}
-			}
+		//	signalhdr_make(&sh, frame);
+		//	//A11信令处理
+		//	if(sh.udp->src_port==ACCESSNW && sh.udp->dst_port==ACCESSNW){
+		//		switch(frame[SGNLHDR_LEN]){
+		//			case REG_REQUEST:
+		//				lifetime[0] = frame[49];
+		//				lifetime[1] = frame[48];
+		//				if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
+		//					tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
+		//					msidhash_join(mhash, tkmsid);
+		//				}
+		//				else if(*lifetime==0){
+		//					tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
+		//					msidhash_quit(mhash, tkmsid);
+		//					free(tkmsid);
+		//					tkmsid = NULL;
+		//				}
+		//				break;
+		//			default:
+		//				break;
+		//		}
+		//	}
+		//	//RADIUS数据处理
+		//	else{
+		//		switch(frame[SGNLHDR_LEN]){
+		//			case RADIUS_ACCT_REQ:
+		//				if(frame[106] == ACCT_STATUS_START){
+		//					rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
+		//					radiushash_join(rhash, rdsmsg);
+		//				}else if(frame[106] == ACCT_STATUS_STOP){
+		//					rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
+		//					radiushash_quit(rhash, rdsmsg);
+		//					free(rdsmsg);
+		//					rdsmsg = NULL;
+		//				}
+		//				break;
+		//			default:
+		//				break;
+		//		}
+		//	}
 		}
 		else if(frame[27] == GRE_FLAG){
-			//用户数据处理
-			framehdr_make(&fh, frame);
-			t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
-			if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
-				//封装完整
-				ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
-						t-FRAME_HEADER_LEN,&fh,mhash,rhash,output);
+		//	//用户数据处理
+		//	framehdr_make(&fh, frame);
+		//	t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
+		//	if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
+		//		//封装完整
+		//		ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
+		//				t-FRAME_HEADER_LEN,&fh,mhash,rhash,output);
 			//			else{
 			//				//封装不完整
 			//				hash_pos = HASH(fh.gre->key, PDU_HASH_ACC);

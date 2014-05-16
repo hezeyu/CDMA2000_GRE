@@ -532,6 +532,7 @@ void *frame_analy(void *msg){
 	//p分析过的帧数，ip_acc获得的ip数据包数,pld_len组包后获得的pdu长度
 	int p=0, ip_acc=0, hash_pos=0, pld_len=0;
 	int t=0;//t临时变量
+	_Int16 *type;
 	short *lifetime = (short *)malloc(2);
 	sql_init();
 	hash_init(&packet_hash);
@@ -544,7 +545,7 @@ void *frame_analy(void *msg){
 			pthread_cond_wait(&(fbuf->full), &(fbuf->mutex));
 		}
 		p++;
-		frame = (u_char *)fbuf->mframe[fbuf->front];
+		frame = fbuf->mframe[fbuf->front];
 		fbuf->mframe[fbuf->front] = NULL;
 		fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
 		pthread_cond_signal(&(fbuf->empty));
@@ -552,7 +553,8 @@ void *frame_analy(void *msg){
 
 		//		printf("\rframe %d", p);
 		//		fflush(stdout);
-		if(frame[27] == UDP_FLAG){
+		type = (_Int16 *)(frame+12);
+		if(*type==VIRTUAL_LAN && frame[27]==UDP_FLAG){
 		//	signalhdr_make(&sh, frame);
 		//	//A11信令处理
 		//	if(sh.udp->src_port==ACCESSNW && sh.udp->dst_port==ACCESSNW){
@@ -594,7 +596,7 @@ void *frame_analy(void *msg){
 		//		}
 		//	}
 		}
-		else if(frame[27] == GRE_FLAG){
+		else if(*type==VIRTUAL_LAN && frame[27]==GRE_FLAG){
 		//	//用户数据处理
 		//	framehdr_make(&fh, frame);
 		//	t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位

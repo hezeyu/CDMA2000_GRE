@@ -15,6 +15,7 @@
 #define PAP	0x23c0
 #define CHAP	0x23c2
 #define IPCP	0x2180
+#define VIRTUAL_LAN 0x0081
 
 #define PPP_FLAG	0x7e
 #define ESCAPE_OCTET	0x7d

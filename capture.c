@@ -55,18 +55,28 @@ pcap_t * open_eth(){
 	return adhandle;
 }
 
+u_char * frame_copy(const u_char *pkt_data, int frame_len){
+	int i;
+	u_char *frame = (u_char *)malloc(frame_len);
+	for(i=0; i<frame_len; i++)
+		frame[i] = pkt_data[i];
+	return frame;
+}
+
 void *frame_capture(void *msg){
 	struct frame_buf *fbuf = ((struct cap_msg *)msg)->fbuf;
 	pcap_t *adhandle = ((struct cap_msg *)msg)->adhandle;
 	struct pcap_pkthdr *header;
+	const u_char *pkt_data;
 	int p=0;
 	do{
 		pthread_mutex_lock(&(fbuf->mutex));
 		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
 			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
 
-		if(pcap_next_ex(adhandle,&header,&(fbuf->mframe[fbuf->rear]))>0){
+		if(pcap_next_ex(adhandle,&header,&pkt_data)>0){
 			printf("\rframe captured:%d", ++p);
+			fbuf->mframe[fbuf->rear]=frame_copy(pkt_data, header->len);
 			fbuf->frame_len[fbuf->rear] = header->len;
 			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
 		}

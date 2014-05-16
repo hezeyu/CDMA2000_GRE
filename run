@@ -1,3 +1,0 @@
-#!/bin/sh
-rm -rf ./core
-./main ~/common/pcap_file/signal.pcap

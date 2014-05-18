@@ -515,7 +515,8 @@ void get_msg_free(struct get_msg **g){
 
 void *frame_analy(void *msg){
 	ue_acc = 0;
-	printf("frame analyzing...\nthe number of UE be found : %d",ue_acc);
+	printf("frame analyzing...\n");
+//	printf("the number of UE be found : %d",ue_acc);
 	fflush(stdout);
 	struct frame_buf *fbuf = ((struct get_msg *)msg)->fbuf;
 	struct msidhash *mhash = ((struct get_msg *)msg)->mhash;
@@ -551,8 +552,6 @@ void *frame_analy(void *msg){
 		pthread_cond_signal(&(fbuf->empty));
 		pthread_mutex_unlock(&(fbuf->mutex));
 
-		//		printf("\rframe %d", p);
-		//		fflush(stdout);
 		type = (_Int16 *)(frame+12);
 		if(*type==VIRTUAL_LAN && frame[27]==UDP_FLAG){
 		//	signalhdr_make(&sh, frame);
@@ -597,7 +596,7 @@ void *frame_analy(void *msg){
 		//	}
 		}
 		else if(*type==VIRTUAL_LAN && frame[27]==GRE_FLAG){
-		//	//用户数据处理
+			//用户数据处理
 		//	framehdr_make(&fh, frame);
 		//	t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
 		//	if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)

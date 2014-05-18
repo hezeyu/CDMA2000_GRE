@@ -45,7 +45,7 @@ pcap_t * open_eth(){
 
 	for(d=alldevs,i=0;i<inum-1;d=d->next,i++);
 
-	if((adhandle = pcap_open_live(d->name,65536,0,5000,errbuf))==NULL){
+	if((adhandle = pcap_open_live(d->name,65536,1,5000,errbuf))==NULL){
 		fprintf(stderr,"\nUnable to open the adpater,%s id not supported\n",d->name);
 		pcap_freealldevs(alldevs);
 		return NULL;
@@ -76,6 +76,7 @@ void *frame_capture(void *msg){
 
 		if(pcap_next_ex(adhandle,&header,&pkt_data)>0){
 			printf("\rframe captured:%d", ++p);
+			fflush(stdout);
 			fbuf->mframe[fbuf->rear]=frame_copy(pkt_data, header->len);
 			fbuf->frame_len[fbuf->rear] = header->len;
 			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
@@ -85,3 +86,4 @@ void *frame_capture(void *msg){
 		pthread_mutex_unlock(&(fbuf->mutex));
 	}while(1);
 }
+

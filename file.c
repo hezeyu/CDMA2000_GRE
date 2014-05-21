@@ -17,7 +17,7 @@ struct frame_buf * frame_buf_init(){
 	int i;
 	for(i=0; i<FRAME_BUF_SIZE; i++){
 		fbuf->mframe[i] = NULL;
-		fbuf->frame_len[i] = 0;
+//		fbuf->frame_len[i] = 0;
 	}
 	fbuf->front = 0;
 	fbuf->rear = 0;
@@ -130,7 +130,6 @@ void *frame_buf_put(void *msg){
 		//读取完整数据帧并加入队列
 		fbuf->mframe[fbuf->rear] = 
 			frame_make(mpkthdr.real_len, mbuf, mfile);
-		fbuf->frame_len[fbuf->rear] = mpkthdr.real_len;
 		fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
 
 		rd_already+=mpkthdr.real_len;

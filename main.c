@@ -7,11 +7,17 @@
 #include "panaly.h"
 #include "file.h"
 #include "capture.h"
+#include "skt.h"
 
-void online_exit(struct cap_msg **c, struct get_msg **g, pcap_t **adhandle){
+void online_exit_libpcap(struct cap_msg **c, struct get_msg **g, pcap_t **adhandle){
 	cap_msg_free(c);
 	get_msg_free(g);
 	free(*adhandle);
+}
+
+void online_exit_socket(struct skt_msg **s, struct get_msg **g){
+	skt_msg_free(s);
+	get_msg_free(g);
 }
 
 void offline_exit(struct put_msg **p, struct get_msg **g, FILE *f){
@@ -29,7 +35,7 @@ int pthread_wait(pthread_t *thread1, pthread_t *thread2){
 	return err;
 }
 
-int online_analy(){
+int online_analy_libpcap(){
 	struct cap_msg *cmsg;
 	struct get_msg *gmsg;
 	pthread_t cap, get;
@@ -37,31 +43,65 @@ int online_analy(){
 	pcap_t *adhandle = open_eth();
 
 	if(!adhandle)
-		return 3;
+		return -3;
 	cmsg = cap_msg_make(adhandle);
 	gmsg = get_msg_make(cmsg->fbuf);
 
 	err = pthread_create(&cap, NULL, frame_capture, (void *)cmsg);
 	if(err != 0){
 		fprintf(stderr, "can't start frame_capture:%s\n", strerror(err));
-		online_exit(&cmsg, &gmsg, &adhandle);
-		return 2;
+		online_exit_libpcap(&cmsg, &gmsg, &adhandle);
+		return -2;
 	}
 	
 	err = pthread_create(&get, NULL, frame_analy, (void *)gmsg);
 	if(err != 0){
 		fprintf(stderr, "can't start frame_analy:%s\n", strerror(err));
-		online_exit(&cmsg, &gmsg, &adhandle);
-		return 2;
+		online_exit_libpcap(&cmsg, &gmsg, &adhandle);
+		return -2;
 	}
 
 	if((err = pthread_wait(&cap, &get)) != 0){
 		fprintf(stderr, "pthread_wait failed\n");
-		online_exit(&cmsg, &gmsg, &adhandle);
-		return 2;
+		online_exit_libpcap(&cmsg, &gmsg, &adhandle);
+		return -2;
 	}
 
-	online_exit(&cmsg, &gmsg, &adhandle);
+	online_exit_libpcap(&cmsg, &gmsg, &adhandle);
+
+	return 0;
+}
+
+int online_analy_socket(){
+	struct skt_msg *smsg;
+	struct get_msg *gmsg;
+	pthread_t cap, get;
+	int err = 0;
+
+	smsg = skt_msg_make();
+	gmsg = get_msg_make(smsg->fbuf);
+
+	err = pthread_create(&cap, NULL, frame_socket, (void *)smsg);
+	if(err != 0){
+		fprintf(stderr, "can't start frame_socket:%s\n", strerror(err));
+		online_exit_socket(&smsg, &gmsg);
+		return -2;
+	}
+	
+	err = pthread_create(&get, NULL, frame_analy, (void *)gmsg);
+	if(err != 0){
+		fprintf(stderr, "can't start frame_analy:%s\n", strerror(err));
+		online_exit_socket(&smsg, &gmsg);
+		return -2;
+	}
+
+	if((err = pthread_wait(&cap, &get)) != 0){
+		fprintf(stderr, "pthread_wait failed\n");
+		online_exit_socket(&smsg, &gmsg);
+		return -2;
+	}
+
+	online_exit_socket(&smsg, &gmsg);
 
 	return 0;
 }
@@ -77,14 +117,14 @@ int offline_analy(char *path){
 	mfile = fopen(path, "rb");
 	if(mfile == 0){
 		fprintf(stderr,"%s\n","No such file!");
-		return 1;
+		return -1;
 	}
 	//获得文件总长度
 	struct stat mstat;
 	if(stat(path,&mstat)<0){
 		fprintf(stderr,"%s\n","stat error!");
 		fclose(mfile);
-		return 1;
+		return -1;
 	}
 	file_len = mstat.st_size;
 	printf("%lld\n", file_len);
@@ -95,20 +135,20 @@ int offline_analy(char *path){
 	if(err != 0){
 		fprintf(stderr, "can't start frame_buf_put:%s\n", strerror(err));
 		offline_exit(&pmsg, &gmsg, mfile);
-		return 2;
+		return -2;
 	}
 	
 	err = pthread_create(&get, NULL, frame_analy, (void *)gmsg);
 	if(err != 0){
 		fprintf(stderr, "can't start signal_analy:%s\n", strerror(err));
 		offline_exit(&pmsg, &gmsg, mfile);
-		return 2;
+		return -2;
 	}
 
 	if((err = pthread_wait(&put, &get)) != 0){
 		fprintf(stderr, "pthread_wait failed\n");
 		offline_exit(&pmsg, &gmsg, mfile);
-		return 2;
+		return -2;
 	}
 
 	offline_exit(&pmsg, &gmsg, mfile);
@@ -121,11 +161,18 @@ int main(int argc, char *argv[]){
 	gettimeofday(&tv1, NULL);
 
 	if(argc < 2){
-		if(online_analy() > 0)
-			fprintf(stderr,"ERROR EXIT!\n");
+		printf("choose the method to get packets:\n1:libpcap\n2:socket\n");
+		fflush(stdout);
+		int i;
+		do{
+			scanf("%d", &i);
+		}while(i != 1 && i != 2);
+		if(i == 1)
+			online_analy_libpcap();
+		else
+			online_analy_socket();
 	}else{
-		if(offline_analy(argv[1]) > 0)
-			fprintf(stderr,"ERROR EXIT!\n");
+		offline_analy(argv[1]);
 	}
 
 	gettimeofday(&tv2, NULL);

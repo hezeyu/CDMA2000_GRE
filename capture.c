@@ -75,10 +75,9 @@ void *frame_capture(void *msg){
 			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
 
 		if(pcap_next_ex(adhandle,&header,&pkt_data)>0){
-//			printf("\rframe captured:%d", ++p);
-//			fflush(stdout);
+			printf("\rframe captured:%d", ++p);
+			fflush(stdout);
 			fbuf->mframe[fbuf->rear]=frame_copy(pkt_data, header->len);
-			fbuf->frame_len[fbuf->rear] = header->len;
 			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
 		}
 

@@ -1,5 +1,5 @@
 objects = main.o file.o panaly.o capture.o skt.o
-CFLAGS = -g -c -D_FILE_OFFSET_BITS=64
+CFLAGS = -g -Wall -c -D_FILE_OFFSET_BITS=64
 
 edit:$(objects)
 	gcc $(objects) -lpcap -lmysqlclient -o main -lpthread

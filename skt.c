@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "skt.h"
 
 #define FRAME_LEN	1600
@@ -68,20 +69,31 @@ void *frame_socket(void *msg){
 		goto FAIL;
 	}
 
+//	do{
+//		pthread_mutex_lock(&(fbuf->mutex));
+//		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
+//			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
+//
+//		fbuf->mframe[fbuf->rear]=(u_char *)malloc(FRAME_LEN);
+//		recv(sockfd,fbuf->mframe[fbuf->rear],FRAME_LEN,MSG_TRUNC);
+//		fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
+//		printf("\rframe:%d", ++p);
+//		fflush(stdout);
+//
+//		pthread_cond_signal(&(fbuf->full));
+//		pthread_mutex_unlock(&(fbuf->mutex));
+//	}while(1);
+
 	do{
-		pthread_mutex_lock(&(fbuf->mutex));
-		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
-			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
-
-		fbuf->mframe[fbuf->rear]=(u_char *)malloc(FRAME_LEN);
-		recv(sockfd,fbuf->mframe[fbuf->rear],FRAME_LEN,MSG_TRUNC);
-		fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
-		printf("\rframe:%d", ++p);
-		fflush(stdout);
-
-		pthread_cond_signal(&(fbuf->full));
-		pthread_mutex_unlock(&(fbuf->mutex));
+		if(fbuf->front != (fbuf->rear+1)%FRAME_BUF_SIZE){
+			fbuf->mframe[fbuf->rear]=(u_char *)malloc(FRAME_LEN);
+			recv(sockfd,fbuf->mframe[fbuf->rear],FRAME_LEN,MSG_TRUNC);
+			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
+			printf("\rframe:%d", ++p);
+			fflush(stdout);
+		}
 	}while(1);
+
 	pthread_exit((void *)3);
 
 FAIL:

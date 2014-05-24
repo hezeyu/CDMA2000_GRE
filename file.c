@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 #include "file.h"
 
 
@@ -100,40 +101,52 @@ void *frame_buf_put(void *msg){
 	long long rd_already = 0;	//记录已经处理的字节数
 	//获取文件信息
 
-	struct filehdr * fheader = (struct filehdr *)(mbuf->buf[mbuf->bnum]+mbuf->forward);
 	mbuf->forward+=sizeof(struct filehdr);
 	rd_already+=mbuf->forward;
 
 	struct pkthdr mpkthdr;
 
-	do{
-		pthread_mutex_lock(&(fbuf->mutex));
+//	do{
+//		pthread_mutex_lock(&(fbuf->mutex));
+//
+//		if(rd_already >= file_len){
+//			fbuf->quit = QUIT;
+//			pthread_mutex_unlock(&(fbuf->mutex));
+//			pthread_exit((void *)1);
+//		}
+//
+//		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
+//			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
+//
+//		rd_already += pkthdr_read(mbuf, &mpkthdr, mfile);
+//
+//		//读取完整数据帧并加入队列
+//		fbuf->mframe[fbuf->rear] = 
+//			frame_make(mpkthdr.real_len, mbuf, mfile);
+//		fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
+//
+//		rd_already+=mpkthdr.real_len;
+//
+//		pthread_cond_signal(&(fbuf->full));
+//		pthread_mutex_unlock(&(fbuf->mutex));
+//	}while(1);
 
+	do{
 		if(rd_already >= file_len){
 			fbuf->quit = QUIT;
-			pthread_mutex_unlock(&(fbuf->mutex));
 			pthread_exit((void *)1);
 		}
 
-		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
-			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
+		if(fbuf->front != (fbuf->rear+1)%FRAME_BUF_SIZE){
+			rd_already += pkthdr_read(mbuf, &mpkthdr, mfile);
 
-		rd_already += pkthdr_read(mbuf, &mpkthdr, mfile);
+			//读取完整数据帧并加入队列
+			fbuf->mframe[fbuf->rear] = 
+				frame_make(mpkthdr.real_len, mbuf, mfile);
+			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
 
-		if((file_len-rd_already)<mpkthdr.real_len){
-			fbuf->quit = QUIT;
-			pthread_mutex_unlock(&(fbuf->mutex));
-			pthread_exit((void *)1);
+			rd_already+=mpkthdr.real_len;
 		}
-		//读取完整数据帧并加入队列
-		fbuf->mframe[fbuf->rear] = 
-			frame_make(mpkthdr.real_len, mbuf, mfile);
-		fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
-
-		rd_already+=mpkthdr.real_len;
-
-		pthread_cond_signal(&(fbuf->full));
-		pthread_mutex_unlock(&(fbuf->mutex));
 	}while(1);
 }
 

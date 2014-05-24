@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 #include "panaly.h"
 #include "sql.c"
 
@@ -173,7 +174,6 @@ struct listhdr * listhdr_make(struct listhdr **list, struct framehdr *fh){
 	struct listhdr *l;
 	l = (struct listhdr *)malloc(sizeof(struct listhdr));
 	l->eth = *(fh->eth);
-	int i;
 	l->ip_src = fh->ip->src;
 	l->ip_dst = fh->ip->dst;
 	l->gre = *(fh->gre);
@@ -493,7 +493,7 @@ struct get_msg * get_msg_make(struct frame_buf *fbuf){
 }
 
 void get_msg_free(struct get_msg **g){
-	int i,j;
+	int i;
 	struct TK_MSID *t;
 	struct RADIUS_MSG *r;
 	for(i=0;i<MSID_HASH_ACC;i++){
@@ -512,6 +512,125 @@ void get_msg_free(struct get_msg **g){
 	}
 	free(*g);
 }
+
+//void *frame_analy(void *msg){
+//	ue_acc = 0;
+//	printf("frame analyzing...\n");
+//	fflush(stdout);
+//	struct frame_buf *fbuf = ((struct get_msg *)msg)->fbuf;
+//	struct msidhash *mhash = ((struct get_msg *)msg)->mhash;
+//	struct radiushash *rhash = ((struct get_msg *)msg)->rhash;
+//	struct TK_MSID *tkmsid;
+//	struct RADIUS_MSG *rdsmsg;
+//	struct listhdr *l=NULL;
+//	u_char *frame=NULL, *tar=NULL;
+//	FILE *output = fopen("./packet", "wb");
+//	FILE *log = fopen("./log", "wb");
+//	struct listhash packet_hash;
+//	struct signalhdr sh;
+//	struct framehdr fh;
+//	//p分析过的帧数，ip_acc获得的ip数据包数,pld_len组包后获得的pdu长度
+//	int p=0, ip_acc=0, hash_pos=0, pld_len=0;
+//	int t=0;//t临时变量
+//	_Int16 *type;
+//	short *lifetime = (short *)malloc(2);
+//	sql_init();
+//	hash_init(&packet_hash);
+//
+//	do{
+//		pthread_mutex_lock(&(fbuf->mutex));
+//		if(fbuf->front == fbuf->rear){
+//			if(fbuf->quit == QUIT)
+//				break;
+//			pthread_cond_wait(&(fbuf->full), &(fbuf->mutex));
+//		}
+//		p++;
+//		frame = fbuf->mframe[fbuf->front];
+//		fbuf->mframe[fbuf->front] = NULL;
+//		fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
+//		pthread_cond_signal(&(fbuf->empty));
+//		pthread_mutex_unlock(&(fbuf->mutex));
+//
+//		type = (_Int16 *)(frame+12);
+//		if(*type==VIRTUAL_LAN && frame[27]==UDP_FLAG){
+//			signalhdr_make(&sh, frame);
+//			//A11信令处理
+//			if(sh.udp->src_port==ACCESSNW && sh.udp->dst_port==ACCESSNW){
+//				switch(frame[SGNLHDR_LEN]){
+//					case REG_REQUEST:
+//						lifetime[0] = frame[49];
+//						lifetime[1] = frame[48];
+//						if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
+//							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
+//							msidhash_join(mhash, tkmsid);
+//						}
+//						else if(*lifetime==0){
+//							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
+//							msidhash_quit(mhash, tkmsid);
+//							free(tkmsid);
+//							tkmsid = NULL;
+//						}
+//						break;
+//					default:
+//						break;
+//				}
+//			}
+//			//RADIUS数据处理
+//			else{
+//				switch(frame[SGNLHDR_LEN]){
+//					case RADIUS_ACCT_REQ:
+//						if(frame[106] == ACCT_STATUS_START){
+//							rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
+//							radiushash_join(rhash, rdsmsg);
+//						}else if(frame[106] == ACCT_STATUS_STOP){
+//							rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
+//							radiushash_quit(rhash, rdsmsg);
+//							free(rdsmsg);
+//							rdsmsg = NULL;
+//						}
+//						break;
+//					default:
+//						break;
+//				}
+//			}
+//		}
+//		else if(*type==VIRTUAL_LAN && frame[27]==GRE_FLAG){
+//			//用户数据处理
+//			framehdr_make(&fh, frame);
+//			t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
+//			if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
+//				//封装完整
+//				ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
+//						t-FRAME_HEADER_LEN,&fh,mhash,rhash,output);
+//			//			else{
+//			//				//封装不完整
+//			//				hash_pos = HASH(fh.gre->key, PDU_HASH_ACC);
+//			//				l = ppp_incomplt(frame,&fh,&packet_hash.list[hash_pos],output,p);
+//			//				//跳转到组包程序
+//			//				pld_len = packet_restructure(&tar, l, log);
+//			//				if(pld_len > 0){
+//			//					t = ppp_complt(tar, pld_len, &fh, mhash, rhash, output);
+//			//					ip_acc+=t;
+//			//					fprintf(log, "packets:%d\n", t);
+//			//				}else if(pld_len == 0)
+//			//					fprintf(log, "packets:%d\n", 0);
+//			//				if(l->pld_list == NULL)
+//			//					listhdr_destroy(&packet_hash.list[hash_pos], l);
+//			//				free(tar);
+//			//				tar = NULL;
+//			//			}
+//		}
+//		free(frame);
+//		frame = NULL;
+//	}while(1);
+//
+//	ip_acc+=hash_free(&packet_hash, output, log);
+//	fclose(output);
+//	fclose(log);
+//	free(lifetime);
+//	printf("\nframe analysis finished\nget %d ip packets\n", ip_acc);
+//	pthread_exit((void *)2);
+//}
 
 void *frame_analy(void *msg){
 	ue_acc = 0;
@@ -538,90 +657,87 @@ void *frame_analy(void *msg){
 	hash_init(&packet_hash);
 
 	do{
-		pthread_mutex_lock(&(fbuf->mutex));
 		if(fbuf->front == fbuf->rear){
 			if(fbuf->quit == QUIT)
 				break;
-			pthread_cond_wait(&(fbuf->full), &(fbuf->mutex));
-		}
-		p++;
-		frame = fbuf->mframe[fbuf->front];
-		fbuf->mframe[fbuf->front] = NULL;
-		fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
-		pthread_cond_signal(&(fbuf->empty));
-		pthread_mutex_unlock(&(fbuf->mutex));
+		}else{
+			p++;
+			frame = fbuf->mframe[fbuf->front];
+			fbuf->mframe[fbuf->front] = NULL;
+			fbuf->front = (fbuf->front+1)%FRAME_BUF_SIZE;
 
-		type = (_Int16 *)(frame+12);
-		if(*type==VIRTUAL_LAN && frame[27]==UDP_FLAG){
-			signalhdr_make(&sh, frame);
-			//A11信令处理
-			if(sh.udp->src_port==ACCESSNW && sh.udp->dst_port==ACCESSNW){
-				switch(frame[SGNLHDR_LEN]){
-					case REG_REQUEST:
-						lifetime[0] = frame[49];
-						lifetime[1] = frame[48];
-						if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
-							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
-							msidhash_join(mhash, tkmsid);
-						}
-						else if(*lifetime==0){
-							tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
-							msidhash_quit(mhash, tkmsid);
-							free(tkmsid);
-							tkmsid = NULL;
-						}
-						break;
-					default:
-						break;
+			type = (_Int16 *)(frame+12);
+			if(*type==VIRTUAL_LAN && frame[27]==UDP_FLAG){
+				signalhdr_make(&sh, frame);
+				//A11信令处理
+				if(sh.udp->src_port==ACCESSNW && sh.udp->dst_port==ACCESSNW){
+					switch(frame[SGNLHDR_LEN]){
+						case REG_REQUEST:
+							lifetime[0] = frame[49];
+							lifetime[1] = frame[48];
+							if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
+								tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
+								msidhash_join(mhash, tkmsid);
+							}
+							else if(*lifetime==0){
+								tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
+								msidhash_quit(mhash, tkmsid);
+								free(tkmsid);
+								tkmsid = NULL;
+							}
+							break;
+						default:
+							break;
+					}
+				}
+				//RADIUS数据处理
+				else{
+					switch(frame[SGNLHDR_LEN]){
+						case RADIUS_ACCT_REQ:
+							if(frame[106] == ACCT_STATUS_START){
+								rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
+								radiushash_join(rhash, rdsmsg);
+							}else if(frame[106] == ACCT_STATUS_STOP){
+								rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
+								radiushash_quit(rhash, rdsmsg);
+								free(rdsmsg);
+								rdsmsg = NULL;
+							}
+							break;
+						default:
+							break;
+					}
 				}
 			}
-			//RADIUS数据处理
-			else{
-				switch(frame[SGNLHDR_LEN]){
-					case RADIUS_ACCT_REQ:
-						if(frame[106] == ACCT_STATUS_START){
-							rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
-							radiushash_join(rhash, rdsmsg);
-						}else if(frame[106] == ACCT_STATUS_STOP){
-							rdsmsg = rdsmsg_make((frame+SGNLHDR_LEN+20), sh.ip->total_len-48, p);
-							radiushash_quit(rhash, rdsmsg);
-							free(rdsmsg);
-							rdsmsg = NULL;
-						}
-						break;
-					default:
-						break;
-				}
+			else if(*type==VIRTUAL_LAN && frame[27]==GRE_FLAG){
+				//用户数据处理
+				framehdr_make(&fh, frame);
+				t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
+				if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
+					//封装完整
+					ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
+							t-FRAME_HEADER_LEN,&fh,mhash,rhash,output);
+				//			else{
+				//				//封装不完整
+				//				hash_pos = HASH(fh.gre->key, PDU_HASH_ACC);
+				//				l = ppp_incomplt(frame,&fh,&packet_hash.list[hash_pos],output,p);
+				//				//跳转到组包程序
+				//				pld_len = packet_restructure(&tar, l, log);
+				//				if(pld_len > 0){
+				//					t = ppp_complt(tar, pld_len, &fh, mhash, rhash, output);
+				//					ip_acc+=t;
+				//					fprintf(log, "packets:%d\n", t);
+				//				}else if(pld_len == 0)
+				//					fprintf(log, "packets:%d\n", 0);
+				//				if(l->pld_list == NULL)
+				//					listhdr_destroy(&packet_hash.list[hash_pos], l);
+				//				free(tar);
+				//				tar = NULL;
+				//			}
 			}
+			free(frame);
+			frame = NULL;
 		}
-		else if(*type==VIRTUAL_LAN && frame[27]==GRE_FLAG){
-			//用户数据处理
-			framehdr_make(&fh, frame);
-			t = fh.ip->total_len + ETH_AND_VLAN;//去掉帧结尾的补位
-			if(frame[FRAME_HEADER_LEN]==PPP_FLAG&&frame[t-1]==PPP_FLAG)
-				//封装完整
-				ip_acc+=ppp_complt((frame+FRAME_HEADER_LEN),
-						t-FRAME_HEADER_LEN,&fh,mhash,rhash,output);
-			//			else{
-			//				//封装不完整
-			//				hash_pos = HASH(fh.gre->key, PDU_HASH_ACC);
-			//				l = ppp_incomplt(frame,&fh,&packet_hash.list[hash_pos],output,p);
-			//				//跳转到组包程序
-			//				pld_len = packet_restructure(&tar, l, log);
-			//				if(pld_len > 0){
-			//					t = ppp_complt(tar, pld_len, &fh, mhash, rhash, output);
-			//					ip_acc+=t;
-			//					fprintf(log, "packets:%d\n", t);
-			//				}else if(pld_len == 0)
-			//					fprintf(log, "packets:%d\n", 0);
-			//				if(l->pld_list == NULL)
-			//					listhdr_destroy(&packet_hash.list[hash_pos], l);
-			//				free(tar);
-			//				tar = NULL;
-			//			}
-		}
-		free(frame);
-		frame = NULL;
 	}while(1);
 
 	ip_acc+=hash_free(&packet_hash, output, log);
@@ -631,4 +747,3 @@ void *frame_analy(void *msg){
 	printf("\nframe analysis finished\nget %d ip packets\n", ip_acc);
 	pthread_exit((void *)2);
 }
-

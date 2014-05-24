@@ -25,7 +25,7 @@ int sql_init(){
 		return SQL_FAILED;
 	}
 
-	u_char query[SQL_LEN];
+	char query[SQL_LEN];
 	sprintf(query, "DROP TABLE %s", TABLE_NAME);
 	mysql_query(&msql, query);
 	sprintf(query, "CREATE TABLE %s(MSISDN VARCHAR(13),MSID VARCHAR(15),"
@@ -42,7 +42,7 @@ int sql_init(){
 
 int sql_insert(u_char *msisdn, u_char *msid, u_char *meid, _Int32 mip, _Int32 key){
 	int r = 0;
-	u_char insert[SQL_LEN];
+	char insert[SQL_LEN];
 	sprintf(insert,
 			"INSERT INTO %s(MSISDN,MSID,MEID,IP,GK) VALUES"
 			"('%s','%s','%s',%lu,%lu)",
@@ -57,7 +57,7 @@ int sql_insert(u_char *msisdn, u_char *msid, u_char *meid, _Int32 mip, _Int32 ke
 
 int sql_update(u_char *msisdn, u_char *msid, _Int32 mip, _Int32 gk){
 	int r = 0;
-	u_char update[SQL_LEN];
+	char update[SQL_LEN];
 	sprintf(update,
 			"UPDATE %s SET MSISDN='%s' WHERE MSID='%s' AND IP=%lu AND GK=%lu",
 			TABLE_NAME, msisdn, msid, mip, gk);

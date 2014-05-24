@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include "capture.h"
 
 struct cap_msg * cap_msg_make(pcap_t *adhandle){
@@ -69,20 +70,30 @@ void *frame_capture(void *msg){
 	struct pcap_pkthdr *header;
 	const u_char *pkt_data;
 	int p=0;
+//	do{
+//		pthread_mutex_lock(&(fbuf->mutex));
+//		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
+//			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
+//
+//		if(pcap_next_ex(adhandle,&header,&pkt_data)>0){
+////			printf("\rframe captured:%d", ++p);
+////			fflush(stdout);
+//			fbuf->mframe[fbuf->rear]=frame_copy(pkt_data, header->len);
+//			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
+//		}
+//
+//		pthread_cond_signal(&(fbuf->full));
+//		pthread_mutex_unlock(&(fbuf->mutex));
+//	}while(1);
+
 	do{
-		pthread_mutex_lock(&(fbuf->mutex));
-		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
-			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
-
-		if(pcap_next_ex(adhandle,&header,&pkt_data)>0){
-//			printf("\rframe captured:%d", ++p);
-//			fflush(stdout);
-			fbuf->mframe[fbuf->rear]=frame_copy(pkt_data, header->len);
-			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
-		}
-
-		pthread_cond_signal(&(fbuf->full));
-		pthread_mutex_unlock(&(fbuf->mutex));
+		if(fbuf->front != (fbuf->rear+1)%FRAME_BUF_SIZE)
+			if(pcap_next_ex(adhandle,&header,&pkt_data)>0){
+	//			printf("\rframe captured:%d", ++p);
+	//			fflush(stdout);
+				fbuf->mframe[fbuf->rear]=frame_copy(pkt_data, header->len);
+				fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
+			}
 	}while(1);
 }
 

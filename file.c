@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-//#include <string.h>
 #include "file.h"
 
 
@@ -17,7 +16,6 @@ struct frame_buf * frame_buf_init(){
 	int i;
 	for(i=0; i<FRAME_BUF_SIZE; i++){
 		fbuf->mframe[i] = NULL;
-//		fbuf->frame_len[i] = 0;
 	}
 	fbuf->front = 0;
 	fbuf->rear = 0;

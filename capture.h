@@ -2,17 +2,12 @@
 #define _CAPTURE_H_
 
 #include "structure.h"
-#include "pcap.h"
+#include <pcap/pcap.h>
 
-struct cap_msg{
-	struct frame_buf *fbuf;
-	pcap_t *adhandle;
-};
+#define SNAPLEN	1600
 
-struct cap_msg * cap_msg_make(pcap_t *);
-void cap_msg_free(struct cap_msg **);
 pcap_t * open_eth();
-void *frame_capture(void *);
+void frame_capture(struct frame_buf *, pcap_t *);
 
 #endif
 

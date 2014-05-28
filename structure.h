@@ -14,9 +14,6 @@ struct frame_buf{
 	int front;
 	int rear;
 	int quit;
-	pthread_mutex_t mutex;
-	pthread_cond_t empty;
-	pthread_cond_t full;
 };
 
 struct frame_buf *frame_buf_init();

@@ -2,7 +2,7 @@ core
 packet
 log
 out
-*.o
 main
+*.o
 run
 tags

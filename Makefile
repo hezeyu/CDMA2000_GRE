@@ -1,20 +1,41 @@
-objects = main.o file.o panaly.o capture.o skt.o
-CFLAGS = -g -Wall -c -D_FILE_OFFSET_BITS=64
+#
+# PF_RING
+#
+#PFRINGDIR  = /usr/local/src/PF_RING-6.0.1/userland/lib
+PFRINGDIR = /usr/lib
+LIBPFRING  = ${PFRINGDIR}/libpfring.a
+
+#
+# PF_RING aware libpcap
+#
+#PCAPDIR    = /usr/local/src/PF_RING-6.0.1/userland/libpcap-1.1.1-ring
+PCAPDIR = /usr/lib
+LIBPCAP    = ${PCAPDIR}/libpcap.a
+
+# Search directories
+#
+PFRING_KERNEL=/usr/local/src/PF_RING-6.0.1/kernel
+INCLUDE    = -I${PFRING_KERNEL} -I${PFRING_KERNEL}/plugins -I${PFRINGDIR} -I${PCAPDIR} -Ithird-party
+
+LIBS = ${LIBPCAP} ${LIBPFRING}  -lpthread ${LIBPCAP} -lnuma -lrt -lmysqlclient
+
+objects = cdma.o file.o panaly.o capture.o pf_ring.o
+CFLAGS = -g -Wall -D_FILE_OFFSET_BITS=64
 
 edit:$(objects)
-	gcc $(objects) -lpcap -lmysqlclient -o main -lpthread
+	gcc $(objects) ${LIBS} -o cdma
 
-main.o:file.h panaly.h capture.h skt.h
-	gcc $(CFLAGS) main.c
+main.o:structure.h file.h panaly.h capture.h pf_ring.h
+	gcc $(CFLAGS) ${INCLUDE} -DHAVE_PF_RING -c cdma.c
 file.o:structure.h file.h
-	gcc $(CFLAGS) file.c
+	gcc $(CFLAGS) -c file.c
 panaly.o:structure.h panaly.h sql.c
-	gcc $(CFLAGS) panaly.c
+	gcc $(CFLAGS) -c panaly.c
 capture.o:structure.h capture.h
-	gcc $(CFLAGS) capture.c
-skt.o:structure.h skt.h
-	gcc $(CFLAGS) skt.c
+	gcc $(CFLAGS) ${INCLUDE} -DHAVE_PF_RING -c capture.c
+pf_ring.o:structure.h pf_ring.h
+	gcc $(CFLAGS) ${INCLUDE} -DHAVE_PF_RING -c pf_ring.c
 
 .PHONY:clean
 clean:
-	rm -rf main $(objects)
+	rm -rf cdma $(objects)

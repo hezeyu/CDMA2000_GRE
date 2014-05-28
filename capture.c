@@ -1,19 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include "capture.h"
-
-struct cap_msg * cap_msg_make(pcap_t *adhandle){
-	struct cap_msg * p = (struct cap_msg *)malloc(sizeof(struct cap_msg));
-	p->fbuf = frame_buf_init();
-	p->adhandle = adhandle;
-	return p;
-}
-
-void cap_msg_free(struct cap_msg **c){
-	free((*c)->fbuf);
-	free(*c);
-}
 
 pcap_t * open_eth(){
 	pcap_if_t *alldevs, *d;
@@ -46,7 +35,7 @@ pcap_t * open_eth(){
 
 	for(d=alldevs,i=0;i<inum-1;d=d->next,i++);
 
-	if((adhandle = pcap_open_live(d->name,65536,1,5000,errbuf))==NULL){
+	if((adhandle = pcap_open_live(d->name,SNAPLEN,1,500,errbuf))==NULL){
 		fprintf(stderr,"\nUnable to open the adpater,%s id not supported\n",d->name);
 		pcap_freealldevs(alldevs);
 		return NULL;
@@ -56,44 +45,29 @@ pcap_t * open_eth(){
 	return adhandle;
 }
 
-u_char * frame_copy(const u_char *pkt_data, int frame_len){
-	int i;
-	u_char *frame = (u_char *)malloc(frame_len);
-	for(i=0; i<frame_len; i++)
-		frame[i] = pkt_data[i];
-	return frame;
+int pcount;
+struct frame_buf *fbuf;
+
+void dummy_packet(u_char *deviceId, const struct pcap_pkthdr *h,
+		const u_char *p){
+	if(fbuf->front!=(fbuf->rear+1)%FRAME_BUF_SIZE
+			&& p[12]==0x81){
+//		printf("\rframe captured:%d", ++pcount);
+//		fflush(stdout);
+//		printf("%d\n", h->len);
+		fbuf->mframe[fbuf->rear] = (u_char *)malloc(h->len);
+		memcpy(fbuf->mframe[fbuf->rear],p,h->len);
+		fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
+	}
 }
 
-void *frame_capture(void *msg){
-	struct frame_buf *fbuf = ((struct cap_msg *)msg)->fbuf;
-	pcap_t *adhandle = ((struct cap_msg *)msg)->adhandle;
-	struct pcap_pkthdr *header;
-	const u_char *pkt_data;
-	int p=0;
-//	do{
-//		pthread_mutex_lock(&(fbuf->mutex));
-//		if(fbuf->front == (fbuf->rear+1)%FRAME_BUF_SIZE)
-//			pthread_cond_wait(&(fbuf->empty), &(fbuf->mutex));
-//
-//		if(pcap_next_ex(adhandle,&header,&pkt_data)>0){
-////			printf("\rframe captured:%d", ++p);
-////			fflush(stdout);
-//			fbuf->mframe[fbuf->rear]=frame_copy(pkt_data, header->len);
-//			fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
-//		}
-//
-//		pthread_cond_signal(&(fbuf->full));
-//		pthread_mutex_unlock(&(fbuf->mutex));
-//	}while(1);
-
-	do{
-		if(fbuf->front != (fbuf->rear+1)%FRAME_BUF_SIZE)
-			if(pcap_next_ex(adhandle,&header,&pkt_data)>0){
-	//			printf("\rframe captured:%d", ++p);
-	//			fflush(stdout);
-				fbuf->mframe[fbuf->rear]=frame_copy(pkt_data, header->len);
-				fbuf->rear = (fbuf->rear+1)%FRAME_BUF_SIZE;
-			}
-	}while(1);
+void frame_capture(struct frame_buf *f, pcap_t *adhandle){
+	fbuf = f;
+	pcount = 0;
+	printf("capture start...\n");
+	fflush(stdout);
+	pcap_set_watermark(adhandle, 128);
+	pcap_loop(adhandle, -1, dummy_packet, NULL);
+	pcap_close(adhandle);
 }
 

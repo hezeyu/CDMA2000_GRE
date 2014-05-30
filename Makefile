@@ -9,6 +9,7 @@ LIBPFRING  = ${PFRINGDIR}/libpfring.a
 # PF_RING aware libpcap
 #
 #PCAPDIR    = /usr/local/src/PF_RING-6.0.1/userland/libpcap-1.1.1-ring
+OFLAGS = -DHAVE_PF_RING -O1
 PCAPDIR = /usr/lib
 LIBPCAP    = ${PCAPDIR}/libpcap.a
 
@@ -20,21 +21,21 @@ INCLUDE    = -I${PFRING_KERNEL} -I${PFRING_KERNEL}/plugins -I${PFRINGDIR} -I${PC
 LIBS = ${LIBPCAP} ${LIBPFRING}  -lpthread ${LIBPCAP} -lnuma -lrt -lmysqlclient
 
 objects = cdma.o file.o panaly.o capture.o pf_ring.o
-CFLAGS = -g -Wall -D_FILE_OFFSET_BITS=64
+CFLAGS = ${OFLAGS} ${INCLUDE} -D HAVE_LIBNUMA -D_FILE_OFFSET_BITS=64 -O1
 
 edit:$(objects)
-	gcc $(objects) ${LIBS} -o cdma
+	gcc ${CFLAGS} $(objects) ${LIBS} -o cdma
 
 main.o:structure.h file.h panaly.h capture.h pf_ring.h
-	gcc $(CFLAGS) ${INCLUDE} -DHAVE_PF_RING -c cdma.c
+	gcc $(CFLAGS) -c cdma.c
 file.o:structure.h file.h
 	gcc $(CFLAGS) -c file.c
 panaly.o:structure.h panaly.h sql.c
 	gcc $(CFLAGS) -c panaly.c
 capture.o:structure.h capture.h
-	gcc $(CFLAGS) ${INCLUDE} -DHAVE_PF_RING -c capture.c
+	gcc $(CFLAGS) -c capture.c
 pf_ring.o:structure.h pf_ring.h
-	gcc $(CFLAGS) ${INCLUDE} -DHAVE_PF_RING -c pf_ring.c
+	gcc $(CFLAGS) -c pf_ring.c
 
 .PHONY:clean
 clean:

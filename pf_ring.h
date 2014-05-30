@@ -2,14 +2,13 @@
 #define _PF_RING_H_
 
 #include "structure.h"
+#include "pfring.h"
 
-struct pfr_msg{
-	struct frame_buf *fbuf;
-};
+#define DEFAULT_DEVICE	"eth0"
+#define PFRING_SNAPLEN	1600
 
-struct pfr_msg * pfr_msg_make();
-void pfr_msg_free(struct pfr_msg **);
-void *frame_pfring(void *);
+pfring * open_pfring(char *);
+int frame_pfring(pfring *, struct frame_buf *);
 
 #endif
 

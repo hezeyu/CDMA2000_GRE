@@ -9,16 +9,11 @@
 #include "capture.h"
 #include "pf_ring.h"
 
-void online_exit_libpcap(struct frame_buf **f, struct get_msg **g){
+void online_exit(struct frame_buf **f, struct get_msg **g){
 	int i;
 	for(i=0; i<FRAME_BUF_SIZE; i++)
 		free((*f)->mframe[i]);
 	free((*f));
-	get_msg_free(g);
-}
-
-void online_exit_pfring(struct pfr_msg **p, struct get_msg **g){
-	pfr_msg_free(p);
 	get_msg_free(g);
 }
 
@@ -42,54 +37,45 @@ int online_analy_libpcap(){
 	struct get_msg *gmsg;
 	pthread_t get;
 	pcap_t *adhandle = open_eth();
-	int err;
+	int err = 0;
 
 	if(!adhandle)
-		return -3;
+		return -1;
 	gmsg = get_msg_make(fbuf);
 
 	err = pthread_create(&get, NULL, frame_analy, (void *)gmsg);
 	if(err != 0){
 		fprintf(stderr,"can't start frame_analy:%s\n",strerror(err));
-		online_exit_libpcap(&fbuf, &gmsg);
+		online_exit(&fbuf, &gmsg);
 		return -2;
 	}
 
 	frame_capture(fbuf, adhandle);
-	online_exit_libpcap(&fbuf, &gmsg);
+	online_exit(&fbuf, &gmsg);
 	return 0;
 }
 
 int online_analy_pfring(){
-	struct pfr_msg *pmsg;
+	struct frame_buf *fbuf = frame_buf_init();
 	struct get_msg *gmsg;
-	pthread_t cap, get;
+	pfring *pd = NULL;
+	pthread_t get;
 	int err = 0;
 
-	pmsg = pfr_msg_make();
-	gmsg = get_msg_make(pmsg->fbuf);
+	if((pd = open_pfring(NULL)) == NULL)
+		return -1;
 
-	err = pthread_create(&cap, NULL, frame_pfring, (void *)pmsg);
-	if(err != 0){
-		fprintf(stderr, "can't start frame_socket:%s\n", strerror(err));
-		online_exit_pfring(&pmsg, &gmsg);
-		return -2;
-	}
-	
+	gmsg = get_msg_make(fbuf);
+
 	err = pthread_create(&get, NULL, frame_analy, (void *)gmsg);
 	if(err != 0){
-		fprintf(stderr, "can't start frame_analy:%s\n", strerror(err));
-		online_exit_pfring(&pmsg, &gmsg);
+		fprintf(stderr,"can't start frame_analy:%s\n",strerror(err));
+		online_exit(&fbuf, &gmsg);
 		return -2;
 	}
 
-	if((err = pthread_wait(&cap, &get)) != 0){
-		fprintf(stderr, "pthread_wait failed\n");
-		online_exit_pfring(&pmsg, &gmsg);
-		return -2;
-	}
-
-	online_exit_pfring(&pmsg, &gmsg);
+	frame_pfring(pd, fbuf);
+	online_exit(&fbuf, &gmsg);
 	return 0;
 }
 
@@ -148,7 +134,14 @@ int main(int argc, char *argv[]){
 	gettimeofday(&tv1, NULL);
 
 	if(argc < 2){
-		online_analy_libpcap();
+		int i;
+		printf("Choose a method to capture:\n"
+				"  1.libpcap\n  2.pf_ring\n");
+		scanf("%d", &i);
+		if(i == 1)
+			online_analy_libpcap();
+		else if(i == 2)
+			online_analy_pfring();
 	}else{
 		offline_analy(argv[1]);
 	}

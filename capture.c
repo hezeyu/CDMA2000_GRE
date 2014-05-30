@@ -52,8 +52,8 @@ void dummy_packet(u_char *deviceId, const struct pcap_pkthdr *h,
 		const u_char *p){
 	if(fbuf->front!=(fbuf->rear+1)%FRAME_BUF_SIZE
 			&& p[12]==0x81){
-//		printf("\rframe captured:%d", ++pcount);
-//		fflush(stdout);
+//	 	printf("\r%d", ++pcount);
+  	//	fflush(stdout);
 //		printf("%d\n", h->len);
 		fbuf->mframe[fbuf->rear] = (u_char *)malloc(h->len);
 		memcpy(fbuf->mframe[fbuf->rear],p,h->len);

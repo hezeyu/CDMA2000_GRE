@@ -7,7 +7,7 @@ typedef unsigned char	u_char;
 typedef unsigned short	_Int16;
 typedef unsigned long	_Int32;
 
-#define FRAME_BUF_SIZE	1280
+#define FRAME_BUF_SIZE	2560
 
 struct frame_buf{
 	u_char *mframe[FRAME_BUF_SIZE];

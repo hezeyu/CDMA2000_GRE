@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include "mysql/mysql.h"
 #include "structure.h"
 
@@ -11,6 +12,17 @@
 #define PASSWORD	"1"
 #define DB_NAME	"gre"
 #define TABLE_NAME	"ms_info_test"
+
+struct sql_msg{
+	u_char *msisdn;
+	u_char *msid;
+	u_char *meid;
+	_Int32 mip;
+	_Int32 key;
+	u_char *bsid;
+	_Int32 pcf;
+	time_t tm;
+};
 
 MYSQL msql;
 
@@ -29,7 +41,8 @@ int sql_init(){
 	sprintf(query, "DROP TABLE %s", TABLE_NAME);
 	mysql_query(&msql, query);
 	sprintf(query, "CREATE TABLE %s(MSISDN VARCHAR(13),MSID VARCHAR(15),"
-			"MEID VARCHAR(14),IP INT UNSIGNED,GK INT UNSIGNED)", 
+			"MEID VARCHAR(14),IP INT UNSIGNED,GK INT UNSIGNED,"
+			"BSID VARCHAR(12),TIME VARCHAR(24))", 
 			TABLE_NAME);
 	if(mysql_query(&msql, query)){
 		fprintf(stderr, "create table error %d:%s\n",
@@ -40,13 +53,14 @@ int sql_init(){
 	return 0;
 }
 
-int sql_insert(u_char *msisdn, u_char *msid, u_char *meid, _Int32 mip, _Int32 key){
+int sql_insert(struct sql_msg *m){
 	int r = 0;
 	char insert[SQL_LEN];
 	sprintf(insert,
-			"INSERT INTO %s(MSISDN,MSID,MEID,IP,GK) VALUES"
-			"('%s','%s','%s',%lu,%lu)",
-			TABLE_NAME, msisdn, msid, meid, mip, key);
+			"INSERT INTO %s(MSISDN,MSID,MEID,IP,GK,BSID,TIME) VALUES"
+			"('%s','%s','%s',%lu,%lu,'%s','%s')",
+			TABLE_NAME,m->msisdn,m->msid,m->meid,
+			m->mip,m->key,m->bsid,ctime(&(m->tm)));
 	if(mysql_query(&msql, insert)){
 		fprintf(stderr, "insert error %d:%s\n",
 				mysql_errno(&msql), mysql_error(&msql));

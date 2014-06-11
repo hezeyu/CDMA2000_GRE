@@ -22,7 +22,7 @@ int frame_escape(u_char *, int);
 void IPCP_handler(u_char *frame, struct framehdr *, struct msidhash *, struct radiushash *);
 
 void signalhdr_make(struct signalhdr *, u_char *);
-struct TK_MSID * tkmsid_make(u_char *, int, struct signalhdr *, int);
+struct TK_MSID * tkmsid_make(u_char *, int, struct signalhdr *, time_t *);
 void msidhash_join(struct msidhash *, struct TK_MSID *);
 void msidhash_quit(struct msidhash *, struct TK_MSID *);
 void radiushash_join(struct radiushash *, struct RADIUS_MSG *);
@@ -109,7 +109,8 @@ void IPCP_handler(u_char *frame, struct framehdr *fh, struct msidhash *mh, struc
 			if(fh->gre->key==t->key && fh->ip->src==t->dip && fh->ip->dst==t->sip){
 				while(r!=NULL){
 					if(fh->gre->key==r->key && *i==r->mip){
-						sql_insert(r->msisdn,t->msid,t->meid,*i,t->key);
+						struct sql_msg msg_t = {r->msisdn,t->msid,t->meid,*i,t->key,t->bsid,t->sip,t->time};
+						sql_insert(&msg_t);
 						printf("\rthe number of UE be found : %d", ++ue_acc);
 						fflush(stdout);
 						return;
@@ -327,7 +328,7 @@ void signalhdr_make(struct signalhdr *sh, u_char *frame){
 	sh->udp = (struct udphdr *)(frame + p);
 }
 
-struct TK_MSID * tkmsid_make(u_char *frame, int frame_len, struct signalhdr *s, int p){
+struct TK_MSID * tkmsid_make(u_char *frame, int frame_len, struct signalhdr *s, time_t *tm){
 	struct TK_MSID *t;
 	t = (struct TK_MSID *)malloc(sizeof(struct TK_MSID));
 	t->sip = s->ip->src;
@@ -357,6 +358,11 @@ struct TK_MSID * tkmsid_make(u_char *frame, int frame_len, struct signalhdr *s, 
 					t->meid[i] = frame[u+i+8];
 				t->meid[i] = '\0';
 				break;
+			case 0x0a:
+				for(i=0;i<12;i++)
+					t->bsid[i] = frame[u+i+8];
+				t->bsid[i] = '\0';
+				break;
 			default:
 				break;
 		}
@@ -364,8 +370,12 @@ struct TK_MSID * tkmsid_make(u_char *frame, int frame_len, struct signalhdr *s, 
 		u+=(*offset);
 	}while(u < y);
 
+	if(tm){
+		t->time = (time_t)long_displace(*tm);
+//		printf("%s", ctime(&t->time));
+//		fflush(stdout);
+	}
 	t->next = NULL;
-	t->p = p;
 	return t;
 }
 
@@ -534,6 +544,7 @@ void *frame_analy(void *msg){
 	int t=0;//t临时变量
 	_Int16 *type;
 	short *lifetime = (short *)malloc(2);
+	time_t *tm;
 	sql_init();
 	hash_init(&packet_hash);
 
@@ -557,11 +568,12 @@ void *frame_analy(void *msg){
 							lifetime[0] = frame[49];
 							lifetime[1] = frame[48];
 							if(*lifetime!=0 && frame[114]==A11_ACTIVE_START){
-								tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
+								tm = (time_t *)(frame+65);
+								tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,tm);
 								msidhash_join(mhash, tkmsid);
 							}
 							else if(*lifetime==0){
-								tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,p);
+								tkmsid=tkmsid_make((frame+SGNLHDR_LEN+24),sh.ip->total_len-52,&sh,NULL);
 								msidhash_quit(mhash, tkmsid);
 								free(tkmsid);
 								tkmsid = NULL;

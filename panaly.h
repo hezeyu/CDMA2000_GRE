@@ -2,6 +2,7 @@
 #define _PANALY_H_
 
 #include "structure.h"
+#include <time.h>
 
 #define PDU_HASH_ACC	128
 #define MSID_HASH_ACC	4096
@@ -128,8 +129,10 @@ struct TK_MSID{
 	_Int32 key;
 	u_char msid[16];
 	u_char meid[15];
+	u_char bsid[13];
+	time_t time;
 	struct TK_MSID *next;
-	int p;
+//	int p;
 };
 
 struct msidhash{
